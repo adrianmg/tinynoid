@@ -8,7 +8,12 @@ readonly DIST_DIR="${ROOT}/dist"
 readonly GODOT_BIN="${GODOT_BIN:?GODOT_BIN must point to Godot 4.7.2}"
 
 rm -rf "$BUILD_DIR" "$DIST_DIR"
-mkdir -p "$DIST_DIR"
+mkdir -p \
+  "$DIST_DIR" \
+  "${BUILD_DIR}/web" \
+  "${BUILD_DIR}/windows" \
+  "${BUILD_DIR}/linux" \
+  "${BUILD_DIR}/macos"
 
 "$GODOT_BIN" --headless --editor --path "$PROJECT_DIR" --quit
 "$GODOT_BIN" --headless --path "$PROJECT_DIR" \
@@ -76,4 +81,3 @@ cp "${BUILD_DIR}/macos/Pikonoid.zip" \
 )
 
 find "$DIST_DIR" -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
-
