@@ -43,7 +43,7 @@ func _draw() -> void:
 
 	draw_rect(Rect2(52, 46, 16, 2), MAGENTA)
 	draw_rect(Rect2(188, 46, 16, 2), MAGENTA)
-	PixelFont.draw_centered(self, "PIKONOID", 42, CYAN, 2)
+	PixelFont.draw_centered(self, "TINYNOID", 42, CYAN, 2)
 	PixelFont.draw_centered(self, SUBTITLE, 61, WHITE)
 
 	for option_index in range(OPTION_Y.size()):

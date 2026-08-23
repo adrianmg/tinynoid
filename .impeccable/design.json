@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "generatedAt": "2026-08-22T20:50:00Z",
-  "title": "Design System: Pikonoid",
+  "title": "Design System: TINYNOID",
   "extensions": {
     "colorMeta": {
       "cartridge-void": {
@@ -87,7 +87,7 @@
       "name": "Main Menu",
       "kind": "custom",
       "description": "Cartridge-style Play, Window, and Sound selector.",
-      "html": "<nav class=\"ds-menu\"><strong>PIKONOID</strong><small>A TINY TRIBUTE FROM ME TO THE ORIGINAL GAME</small><b>PLAY STAGE 17</b><span>WINDOW 3X</span><span>SOUND III</span><small>ARROW KEYS TO MOVE &amp; SELECT</small><small>ENTER / SPACEBAR TO SELECT</small><small>ESC TO QUIT</small></nav>",
+      "html": "<nav class=\"ds-menu\"><strong>TINYNOID</strong><small>A TINY TRIBUTE FROM ME TO THE ORIGINAL GAME</small><b>PLAY STAGE 17</b><span>WINDOW 3X</span><span>SOUND III</span><small>ARROW KEYS TO MOVE &amp; SELECT</small><small>ENTER / SPACEBAR TO SELECT</small><small>ESC TO QUIT</small></nav>",
       "css": ".ds-menu{width:184px;background:#111329;color:#f7f4ff;border-radius:0;border-top:2px solid #74ddff;border-bottom:2px solid #287fc4;display:grid;gap:12px;padding:12px 16px;font-family:monospace;text-align:center;text-transform:uppercase}.ds-menu b{color:#ffd84a;outline:2px solid #74ddff;background:#12345b}.ds-menu small{color:#74ddff}"
     },
     {
@@ -100,7 +100,7 @@
   ],
   "narrative": {
     "northStar": "The Neon Cartridge",
-    "overview": "Pikonoid looks as if its entire world were authored inside a constrained console cartridge: every mark lands on the pixel grid, every color has a named role, and depth comes from deliberate one-pixel bands rather than modern effects.",
+    "overview": "TINYNOID looks as if its entire world were authored inside a constrained console cartridge: every mark lands on the pixel grid, every color has a named role, and depth comes from deliberate one-pixel bands rather than modern effects.",
     "keyCharacteristics": [
       "Native 256x240 composition with integer-only scaling across 33 stages.",
       "Hand-authored 3x5 bitmap lettering.",

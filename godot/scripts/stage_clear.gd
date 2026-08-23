@@ -20,7 +20,7 @@ func _draw() -> void:
 	draw_rect(Rect2(28, 64, 200, 112), PANEL)
 	draw_rect(Rect2(28, 64, 200, 2), CYAN)
 	draw_rect(Rect2(28, 174, 200, 2), BLUE)
-	PixelFont.draw_centered(self, "PIKONOID", 10, CYAN)
+	PixelFont.draw_centered(self, "TINYNOID", 10, CYAN)
 	var title := (
 		"CAMPAIGN CLEAR"
 		if GameSession.level >= LevelCatalog.STAGE_COUNT

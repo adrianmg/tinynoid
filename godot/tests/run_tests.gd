@@ -272,8 +272,8 @@ func _test_pixel_perfect_settings() -> void:
 		"The logical viewport is 256 pixels wide."
 	)
 	_check(
-		ProjectSettings.get_setting("application/config/name") == "Pikonoid",
-		"The Godot project is named Pikonoid."
+		ProjectSettings.get_setting("application/config/name") == "TINYNOID",
+		"The Godot project is named TINYNOID."
 	)
 	_check(
 		ProjectSettings.get_setting("display/window/size/viewport_height") == 240,

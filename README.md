@@ -1,16 +1,13 @@
-# Pikonoid
+# TINYNOID
 
-A tiny tribute from me to the original game.
-
-Pikonoid is an original, pixel-perfect paddle-breaker built with Godot 4.7.2.
-Clear 33 stages, collect seven power capsules, and chase a high score through
-procedural visuals, effects, and chiptune music.
+🎮 A tiny tribute to the classic NES Arkanoid, built in Godot with a twist:
+procedurally generated graphics and music.
 
 ## Screenshots
 
 | Main menu | Stage 1 — Rainbow Gate | Stage 17 — Waveform II |
 | --- | --- | --- |
-| ![Pikonoid main menu](docs/screenshots/menu.png) | ![Pikonoid Stage 1](docs/screenshots/stage-01.png) | ![Pikonoid Stage 17](docs/screenshots/stage-17.png) |
+| ![TINYNOID main menu](docs/screenshots/menu.png) | ![TINYNOID Stage 1](docs/screenshots/stage-01.png) | ![TINYNOID Stage 17](docs/screenshots/stage-17.png) |
 
 ## Play
 

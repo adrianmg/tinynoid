@@ -22,6 +22,5 @@ else
   gh issue create \
     --repo "$GITHUB_REPOSITORY" \
     --title "$TITLE" \
-    --body "The automated Pikonoid release failed for commit \`${GITHUB_SHA}\`.\n\nWorkflow: ${RUN_URL}\n\nRerun the failed workflow after correcting the reported job."
+    --body "The automated TINYNOID release failed for commit \`${GITHUB_SHA}\`.\n\nWorkflow: ${RUN_URL}\n\nRerun the failed workflow after correcting the reported job."
 fi
-

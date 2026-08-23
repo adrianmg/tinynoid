@@ -1,6 +1,6 @@
 # Mobile release gates
 
-Desktop and Web prereleases do not depend on mobile credentials.
+TINYNOID desktop and Web prereleases do not depend on mobile credentials.
 
 ## Android
 
@@ -31,4 +31,3 @@ Enable iOS exports only after configuring:
 
 The job must use a temporary keychain, export a signed IPA, and delete the
 keychain before completion. Do not publish an unsigned IPA.
-

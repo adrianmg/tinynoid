@@ -20,7 +20,7 @@ func _draw() -> void:
 	draw_rect(Rect2(36, 64, 184, 112), PANEL)
 	draw_rect(Rect2(36, 64, 184, 2), RED)
 	draw_rect(Rect2(36, 174, 184, 2), BLUE)
-	PixelFont.draw_centered(self, "PIKONOID", 10, CYAN)
+	PixelFont.draw_centered(self, "TINYNOID", 10, CYAN)
 	PixelFont.draw_centered(self, "GAME OVER", 84, RED, 2)
 	PixelFont.draw_centered(self, "SCORE", 118, WHITE)
 	PixelFont.draw_centered(self, "%06d" % GameSession.score, 128, YELLOW)

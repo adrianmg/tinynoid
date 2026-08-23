@@ -1,5 +1,5 @@
 ---
-name: Pikonoid
+name: TINYNOID
 description: A fixed-palette cartridge-era visual system for an original paddle-breaker.
 colors:
   cartridge-void: "#050611"
@@ -16,13 +16,13 @@ colors:
   brick-magenta: "#c967e8"
 typography:
   display:
-    fontFamily: "Pikonoid 3x5 bitmap glyphs"
+    fontFamily: "TINYNOID 3x5 bitmap glyphs"
     fontSize: "10px"
     fontWeight: 700
     lineHeight: 1
     letterSpacing: "2px"
   label:
-    fontFamily: "Pikonoid 3x5 bitmap glyphs"
+    fontFamily: "TINYNOID 3x5 bitmap glyphs"
     fontSize: "5px"
     fontWeight: 400
     lineHeight: 1
@@ -46,13 +46,13 @@ components:
     width: "14px"
 ---
 
-# Design System: Pikonoid
+# Design System: TINYNOID
 
 ## Overview
 
 **Creative North Star: "The Neon Cartridge"**
 
-Pikonoid looks as if its entire world were authored inside a constrained
+TINYNOID looks as if its entire world were authored inside a constrained
 console cartridge: every mark lands on the pixel grid, every color has a named
 role, and depth comes from deliberate one-pixel bands rather than modern
 effects. The playfield is the primary surface; interface chrome stays compact
@@ -99,9 +99,9 @@ discrete steps; they never dissolve through continuous alpha fades.
 
 ## Typography
 
-**Display Font:** Pikonoid 3x5 bitmap glyphs  
-**Body Font:** Pikonoid 3x5 bitmap glyphs  
-**Label Font:** Pikonoid 3x5 bitmap glyphs
+**Display Font:** TINYNOID 3x5 bitmap glyphs
+**Body Font:** TINYNOID 3x5 bitmap glyphs
+**Label Font:** TINYNOID 3x5 bitmap glyphs
 
 **Character:** A tiny all-caps console alphabet drawn by code. It favors brief
 state labels, scores, and action prompts over prose.
@@ -109,7 +109,7 @@ state labels, scores, and action prompts over prose.
 ### Hierarchy
 
 - **Display** (2x pixel scale, 10px high): `GAME OVER` and `STAGE CLEAR`.
-- **Title** (1x pixel scale, 5px high): `PIKONOID`.
+- **Title** (1x pixel scale, 5px high): `TINYNOID`.
 - **Label** (1x pixel scale, 5px high): HUD headings and action prompts.
 - **Data** (1x pixel scale, 5px high): zero-padded scores, stage, and ball count.
 
@@ -222,7 +222,7 @@ octave lift.
 
 - **Do** align positions, motion artifacts, and decorative marks to whole pixels.
 - **Do** reuse the rail, starfield, and fixed palette across every state.
-- **Do** reserve the Pikonoid masthead for menu and result screens.
+- **Do** reserve the TINYNOID masthead for menu and result screens.
 - **Do** express feedback through color steps, frame swaps, and discrete motion.
 - **Do** keep instructions device-neutral by naming mapped actions.
 
