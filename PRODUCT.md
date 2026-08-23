@@ -35,10 +35,10 @@ a Web export. Playtesting uses mouse, keyboard, or a standard game controller.
 - Main menu with Play, window scale/fullscreen, and four persistent sound levels.
 - 33 original stages, selectable starts, progression, score, stage-clear,
   game-over, and replay.
-- Seven falling capsule mechanics: Expand, Slow, Disruption, Catch, Laser,
-  Break, and Player.
-- Expand, Slow, Disruption, Catch, and Laser are mutually exclusive and reset
-  on life loss or stage clear; Break and Player are immediate.
+- Eight falling capsule mechanics: Expand, Slow, Disruption, Catch, Laser,
+  Break, Player, and Thru.
+- Expand, Slow, Disruption, Catch, Laser, and Thru are mutually exclusive and
+  reset on life loss or stage clear; Break and Player are immediate.
 - Brick destruction and Silver damage persist when a life is lost.
 - Continuous position-based paddle bounce with bounded motion influence.
 - Eight one-hit score colors, stage-scaled Silver, and indestructible Gold.

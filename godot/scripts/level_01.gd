@@ -87,10 +87,11 @@ func _assign_power_ups(candidates: Array[Brick]) -> void:
 		PowerUp.PowerType.CATCH,
 		PowerUp.PowerType.LASER,
 		PowerUp.PowerType.BREAK,
+		PowerUp.PowerType.THRU,
 	]
 	for type_index in range(types.size()):
 		var brick_index := floori(
-			float(type_index + 1) * candidates.size() / 8.0
+			float(type_index + 1) * candidates.size() / 9.0
 		)
 		candidates[brick_index].power_up_type = types[type_index]
 

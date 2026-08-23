@@ -7,14 +7,19 @@ signal deactivated
 const BASE_SPEED := 200.0
 const SLOW_SPEED := 150.0
 const PADDLE_TOP_NORMAL_THRESHOLD := -0.75
+const BRICK_COLLISION_MASK := 1 << 3
 
 @export var speed := BASE_SPEED
 @export var hold_offset_y := -8.0
 @export_range(1, 8, 1) var max_collisions_per_tick := 4
 
+@onready var collision_shape: CollisionShape2D = $CollisionShape2D
+
 var _paddle: PaddleController
 var _direction := Vector2.ZERO
 var _active := false
+var _piercing_enabled := false
+var _piercing_contacts: Dictionary[int, bool] = {}
 
 
 func _ready() -> void:
@@ -26,6 +31,11 @@ func _draw() -> void:
 	draw_rect(Rect2(-3, -2, 6, 4), Color("#18244f"))
 	draw_rect(Rect2(-2, -2, 4, 4), Color("#f7f4ff"))
 	draw_rect(Rect2(-1, -2, 2, 1), Color("#74ddff"))
+	if _piercing_enabled:
+		draw_rect(Rect2(-4, 0, 1, 1), Color("#ffd84a"))
+		draw_rect(Rect2(3, 0, 1, 1), Color("#ffd84a"))
+		draw_rect(Rect2(0, -4, 1, 1), Color("#ffd84a"))
+		draw_rect(Rect2(0, 3, 1, 1), Color("#ffd84a"))
 
 
 func attach_to(paddle: PaddleController) -> void:
@@ -84,6 +94,7 @@ func reset_speed() -> void:
 func reset_for_serve(paddle: PaddleController) -> void:
 	deactivate()
 	speed = BASE_SPEED
+	set_piercing(false)
 	_paddle = paddle
 	set_physics_process(true)
 	_follow_paddle()
@@ -101,6 +112,8 @@ func _physics_process(delta: float) -> void:
 		return
 
 	_move_with_bounces(delta)
+	if _piercing_enabled:
+		_damage_overlapping_bricks()
 
 
 func _follow_paddle() -> void:
@@ -165,3 +178,48 @@ func catch_on_paddle(paddle: PaddleController) -> void:
 	set_physics_process(true)
 	deactivated.emit()
 	_follow_paddle()
+
+
+func set_piercing(enabled: bool) -> void:
+	_piercing_enabled = enabled
+	if not enabled:
+		_piercing_contacts.clear()
+	queue_redraw()
+	call_deferred("_apply_piercing_state", enabled)
+
+
+func is_piercing() -> bool:
+	return _piercing_enabled
+
+
+func _apply_piercing_state(enabled: bool) -> void:
+	if enabled != _piercing_enabled:
+		return
+
+	set_collision_mask_value(4, not enabled)
+
+
+func _damage_overlapping_bricks() -> void:
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = collision_shape.shape
+	query.transform = global_transform
+	query.collision_mask = BRICK_COLLISION_MASK
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+
+	var current_contacts: Dictionary[int, bool] = {}
+	for result in get_world_2d().direct_space_state.intersect_shape(query, 8):
+		var body := result.get("collider") as Node
+		if (
+			body == null
+			or not body.is_in_group("bricks")
+			or body.get("indestructible")
+		):
+			continue
+
+		var body_id := body.get_instance_id()
+		current_contacts[body_id] = true
+		if not _piercing_contacts.has(body_id):
+			body.call(&"hit")
+
+	_piercing_contacts = current_contacts

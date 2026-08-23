@@ -38,6 +38,8 @@ var _flash_time_left := 0.0
 
 func _ready() -> void:
 	_max_hit_points = maxi(hit_points, 1)
+	if indestructible:
+		set_collision_layer_value(2, true)
 	set_process(false)
 	queue_redraw()
 

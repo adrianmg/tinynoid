@@ -33,7 +33,9 @@ func _run() -> void:
 	await _test_campaign_routing()
 	await _test_game_session()
 	await _test_level_catalog()
+	await _test_power_up_distribution()
 	await _test_brick_rules()
+	await _test_thru_physics()
 	await _test_gold_stage_clear()
 	await _test_level_content()
 	await _test_brick_scores_once()
@@ -601,6 +603,35 @@ func _test_level_catalog() -> void:
 	_check(found_gold, "The campaign includes Gold bricks.")
 
 
+func _test_power_up_distribution() -> void:
+	for stage_number in range(1, LevelCatalog.STAGE_COUNT + 1):
+		GameSession.new_game(stage_number)
+		var level: Level01 = LEVEL_SCENE.instantiate()
+		get_tree().root.add_child(level)
+		await get_tree().process_frame
+
+		var power_up_types: Dictionary[int, bool] = {}
+		var drop_count := 0
+		for child in level.bricks.get_children():
+			var brick := child as Brick
+			if brick.power_up_type < 0:
+				continue
+			drop_count += 1
+			power_up_types[brick.power_up_type] = true
+
+		_check(
+			drop_count == PowerUp.POWER_TYPE_COUNT,
+			"Stage %02d assigns exactly eight capsule drops." % stage_number
+		)
+		_check(
+			power_up_types.size() == PowerUp.POWER_TYPE_COUNT,
+			"Stage %02d includes every capsule type." % stage_number
+		)
+
+		level.queue_free()
+		await get_tree().process_frame
+
+
 func _test_brick_rules() -> void:
 	var expected_scores := {
 		"W": 50,
@@ -705,6 +736,57 @@ func _test_brick_rules() -> void:
 	await get_tree().process_frame
 
 
+func _test_thru_physics() -> void:
+	var silver_world := Node2D.new()
+	var silver_brick: Brick = BRICK_SCENE.instantiate()
+	var silver_ball: BreakerBall = BALL_SCENE.instantiate()
+	silver_brick.hit_points = 3
+	silver_brick.position = Vector2(100, 100)
+	silver_ball.position = Vector2(72, 100)
+	silver_world.add_child(silver_brick)
+	silver_world.add_child(silver_ball)
+	get_tree().root.add_child(silver_world)
+	await get_tree().process_frame
+
+	silver_ball.set_piercing(true)
+	await get_tree().process_frame
+	_check(
+		not silver_ball.get_collision_mask_value(4),
+		"Thru disables physical collisions with destructible bricks."
+	)
+	silver_ball.launch_in_direction(Vector2.RIGHT)
+	for physics_step in range(12):
+		await get_tree().physics_frame
+	_check(
+		silver_brick.hit_points == 2,
+		"Thru damages Silver once per pass (remaining hits: %d)." % silver_brick.hit_points
+	)
+	_check(silver_ball.velocity.x > 0.0, "Thru does not bounce off Silver.")
+	silver_world.queue_free()
+	await get_tree().process_frame
+
+	var gold_world := Node2D.new()
+	var gold_brick: Brick = BRICK_SCENE.instantiate()
+	var gold_ball: BreakerBall = BALL_SCENE.instantiate()
+	gold_brick.indestructible = true
+	gold_brick.position = Vector2(100, 100)
+	gold_ball.position = Vector2(72, 100)
+	gold_world.add_child(gold_brick)
+	gold_world.add_child(gold_ball)
+	get_tree().root.add_child(gold_world)
+	await get_tree().process_frame
+
+	gold_ball.set_piercing(true)
+	await get_tree().process_frame
+	gold_ball.launch_in_direction(Vector2.RIGHT)
+	for physics_step in range(12):
+		await get_tree().physics_frame
+	_check(is_instance_valid(gold_brick), "Thru never destroys Gold.")
+	_check(gold_ball.velocity.x < 0.0, "Gold remains solid while Thru is active.")
+	gold_world.queue_free()
+	await get_tree().process_frame
+
+
 func _test_gold_stage_clear() -> void:
 	var gold_stage := -1
 	for stage_number in range(1, LevelCatalog.STAGE_COUNT + 1):
@@ -769,7 +851,7 @@ func _test_level_content() -> void:
 	_check(_brick_score_at(level, Vector2(80, 112)) == 110, "The magenta foundation is present.")
 	_check(
 		power_up_types.size() == PowerUp.POWER_TYPE_COUNT,
-		"Each stage contains all seven power-up drops."
+		"Each stage contains all eight power-up drops."
 	)
 	for power_type in range(PowerUp.POWER_TYPE_COUNT):
 		_check(
@@ -988,6 +1070,7 @@ func _test_power_up_chip() -> void:
 		PowerUp.PowerType.CATCH: "C",
 		PowerUp.PowerType.LASER: "L",
 		PowerUp.PowerType.BREAK: "B",
+		PowerUp.PowerType.THRU: "T",
 	}
 	for power_type in expected_symbols:
 		_check(
@@ -1345,6 +1428,35 @@ func _test_power_up_effects() -> void:
 		"Laser shots damage and destroy destructible bricks."
 	)
 
+	gameplay.ball.reset_for_serve(gameplay.paddle)
+	gameplay.apply_power_up(PowerUp.PowerType.THRU)
+	await get_tree().process_frame
+	_check(gameplay.ball.is_piercing(), "Thru enables piercing on the active ball.")
+	_check(not gameplay.paddle.laser_enabled, "Thru replaces Laser.")
+
+	var bricks_before_thru := gameplay.level.get_brick_count()
+	gameplay.ball.global_position = Vector2(50, 52)
+	gameplay.ball.launch_in_direction(Vector2.RIGHT)
+	for physics_step in range(35):
+		await get_tree().physics_frame
+	await get_tree().process_frame
+	_check(
+		gameplay.level.get_brick_count() <= bricks_before_thru - 4,
+		"Thru destroys several colored bricks in one traversal (%d removed)."
+		% (bricks_before_thru - gameplay.level.get_brick_count())
+	)
+	_check(
+		gameplay.ball.velocity.x > 0.0,
+		"Thru keeps traveling forward through destructible bricks."
+	)
+
+	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
+	await get_tree().process_frame
+	_check(not gameplay.ball.is_piercing(), "Replacing Thru clears piercing.")
+	gameplay.apply_power_up(PowerUp.PowerType.THRU)
+	await get_tree().process_frame
+	_check(gameplay.ball.is_piercing(), "Thru can be activated again after replacement.")
+
 	var break_requested := [false]
 	gameplay.stage_clear_requested.connect(
 		func() -> void:
@@ -1354,6 +1466,7 @@ func _test_power_up_effects() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_check(break_requested[0], "Break immediately requests the next stage.")
+	_check(not gameplay.ball.is_piercing(), "Stage clear removes Thru piercing.")
 
 	for active_ball in gameplay._get_balls():
 		active_ball.deactivate()
