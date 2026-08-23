@@ -35,10 +35,7 @@ if [[ ! -x "$GODOT_BIN" ]]; then
   rm -f "$archive"
 fi
 
-if (
-  [[ "${GODOT_INSTALL_TEMPLATES:-1}" == "1" ]]
-  && [[ ! -f "${TEMPLATE_DIR}/version.txt" ]]
-); then
+if [[ "${GODOT_INSTALL_TEMPLATES:-1}" == "1" && ! -f "${TEMPLATE_DIR}/version.txt" ]]; then
   archive="$(mktemp)"
   extract_dir="$(mktemp -d)"
   download_and_verify \
