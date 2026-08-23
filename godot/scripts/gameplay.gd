@@ -34,9 +34,19 @@ var _transition_pending := false
 var _transition_epoch := 0
 var _active_power_up := -1
 var _laser_cooldown_remaining := 0.0
+var _drop_director: CapsuleDropDirector
 
 
 func _ready() -> void:
+	_drop_director = CapsuleDropDirector.new(
+		GameSession.run_seed,
+		GameSession.level,
+		level.get_destructible_brick_count(),
+		GameSession.starter_capsule_pending
+	)
+	_drop_director.starter_pool_consumed.connect(
+		GameSession.mark_starter_capsule_spawned
+	)
 	ball.attach_to(paddle)
 	ball.launched.connect(_on_ball_launched)
 	level.brick_struck.connect(_on_brick_struck)
@@ -69,8 +79,7 @@ func _process(delta: float) -> void:
 func _on_brick_broken(
 	points: int,
 	world_position: Vector2,
-	effect_color: Color,
-	power_up_type: int
+	effect_color: Color
 ) -> void:
 	GameSession.award(points)
 
@@ -79,12 +88,16 @@ func _on_brick_broken(
 	effects.add_child(effect)
 	effect.global_position = world_position
 
+	var snapshot := CapsuleDropDirector.DropSnapshot.new(
+		level.get_destructible_brick_count(),
+		_get_falling_power_up_count(),
+		_active_power_up,
+		GameSession.balls_remaining,
+		_get_balls().size()
+	)
+	var power_up_type := _drop_director.on_brick_destroyed(snapshot)
 	if power_up_type >= 0:
-		var power_up: PowerUp = POWER_UP_SCENE.instantiate()
-		power_up.configure(power_up_type)
-		power_up.picked_up.connect(_on_power_up_picked)
-		power_ups.add_child(power_up)
-		power_up.global_position = world_position
+		_spawn_power_up(power_up_type, world_position)
 
 
 func _on_brick_struck(
@@ -104,6 +117,22 @@ func _on_power_up_picked(power_type: int) -> void:
 		power_type,
 		_transition_epoch
 	)
+
+
+func _spawn_power_up(power_type: int, world_position: Vector2) -> void:
+	var power_up: PowerUp = POWER_UP_SCENE.instantiate()
+	power_up.configure(power_type)
+	power_up.picked_up.connect(_on_power_up_picked)
+	power_ups.add_child(power_up)
+	power_up.global_position = world_position
+
+
+func _get_falling_power_up_count() -> int:
+	var count := 0
+	for power_up in power_ups.get_children():
+		if not power_up.is_queued_for_deletion():
+			count += 1
+	return count
 
 
 func _apply_power_up_if_current(

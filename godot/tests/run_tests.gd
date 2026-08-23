@@ -33,7 +33,8 @@ func _run() -> void:
 	await _test_campaign_routing()
 	await _test_game_session()
 	await _test_level_catalog()
-	await _test_power_up_distribution()
+	await _test_capsule_drop_director()
+	await _test_dynamic_power_up_flow()
 	await _test_brick_rules()
 	await _test_thru_physics()
 	await _test_gold_stage_clear()
@@ -515,17 +516,32 @@ func _test_campaign_routing() -> void:
 func _test_game_session() -> void:
 	var session := GameSessionState.new()
 	get_tree().root.add_child(session)
-	session.new_game()
+	session.new_game(1, 12345)
 
 	_check(session.score == 0, "A new game starts with zero score.")
 	_check(session.balls_remaining == 3, "A new game starts with three balls.")
+	_check(session.run_seed == 12345, "A supplied run seed is preserved for replay.")
+	_check(session.starter_capsule_pending, "A new run starts with its beginner reward pending.")
+	session.mark_starter_capsule_spawned()
+	_check(
+		not session.starter_capsule_pending,
+		"Spawning the first capsule consumes the beginner reward."
+	)
 	session.add_ball()
 	_check(session.balls_remaining == 4, "Extra Ball adds one ball.")
 	session.new_game(17)
 	_check(session.level == 17, "A new game can start from a selected stage.")
+	var selected_stage_seed := session.run_seed
+	session.mark_starter_capsule_spawned()
 	session.advance_level()
 	_check(session.level == 18, "Campaign progression advances one stage.")
+	_check(session.run_seed == selected_stage_seed, "Campaign progression keeps the run seed.")
+	_check(
+		not session.starter_capsule_pending,
+		"Campaign progression does not restore the one-time beginner reward."
+	)
 	session.new_game()
+	_check(session.starter_capsule_pending, "A true restart restores the beginner reward.")
 
 	session.award(50)
 	_check(session.score == 50, "Score awards are accumulated.")
@@ -603,33 +619,206 @@ func _test_level_catalog() -> void:
 	_check(found_gold, "The campaign includes Gold bricks.")
 
 
-func _test_power_up_distribution() -> void:
-	for stage_number in range(1, LevelCatalog.STAGE_COUNT + 1):
-		GameSession.new_game(stage_number)
-		var level: Level01 = LEVEL_SCENE.instantiate()
-		get_tree().root.add_child(level)
+func _test_capsule_drop_director() -> void:
+	_check(CapsuleDropDirector.calculate_budget(19) == 2, "Sparse stages budget two capsules.")
+	_check(CapsuleDropDirector.calculate_budget(24) == 3, "A 24-brick stage budgets three capsules.")
+	_check(CapsuleDropDirector.calculate_budget(64) == 8, "A 64-brick stage budgets eight capsules.")
+	_check(CapsuleDropDirector.calculate_budget(78) == 8, "Dense stages cap at eight capsules.")
+
+	var trace_a := _simulate_capsule_stage(4242, 1, 64, true)
+	var trace_b := _simulate_capsule_stage(4242, 1, 64, true)
+	_check(trace_a == trace_b, "The same seed and event stream reproduce every drop decision.")
+	_check(
+		trace_a.types[0] in [
+			PowerUp.PowerType.WIDE,
+			PowerUp.PowerType.SLOW,
+			PowerUp.PowerType.MULTI,
+		],
+		"The first run reward comes from the beginner-friendly pool."
+	)
+
+	var blocked_director := CapsuleDropDirector.new(91, 1, 64, true)
+	var blocked_drop_count := 0
+	for break_number in range(1, 21):
+		var blocked_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			64 - break_number,
+			CapsuleDropDirector.MAX_FALLING_CAPSULES,
+			-1,
+			3,
+			1
+		)
+		if (
+			blocked_director.on_brick_destroyed(blocked_snapshot)
+			!= CapsuleDropDirector.NO_DROP
+		):
+			blocked_drop_count += 1
+	_check(
+		blocked_drop_count == 0,
+		"Visible capsules suspend drop rolls without advancing pity."
+	)
+	var resumed_drop_break := -1
+	for break_number in range(21, 27):
+		var resumed_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			64 - break_number,
+			0,
+			-1,
+			3,
+			1
+		)
+		if blocked_director.on_brick_destroyed(resumed_snapshot) >= 0:
+			resumed_drop_break = break_number
+			break
+	_check(
+		resumed_drop_break >= 23 and resumed_drop_break <= 26,
+		"Drop pity resumes from zero after visible capsules clear."
+	)
+
+	var active_filter_director := CapsuleDropDirector.new(617, 7, 40, false)
+	var active_filter_violations := 0
+	for break_number in range(1, 40):
+		var active_filter_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			40 - break_number,
+			0,
+			PowerUp.PowerType.WIDE,
+			3,
+			1
+		)
+		var filtered_type := active_filter_director.on_brick_destroyed(
+			active_filter_snapshot
+		)
+		if filtered_type == PowerUp.PowerType.WIDE:
+			active_filter_violations += 1
+	_check(
+		active_filter_violations == 0,
+		"The active capsule type is excluded from random selection."
+	)
+
+	var total_stage_runs := 0
+	var total_drops := 0
+	var total_density := 0.0
+	var capped_stage_runs := 0
+	var player_drops := 0
+	var stages_with_break := 0
+	var opening_violations := 0
+	var budget_violations := 0
+	var gap_violations := 0
+	var repeat_violations := 0
+	for run_seed in range(10000):
+		for stage_number in range(1, LevelCatalog.STAGE_COUNT + 1):
+			var destructible_count := _get_destructible_layout_count(stage_number)
+			var simulation := _simulate_capsule_stage(
+				run_seed,
+				stage_number,
+				destructible_count,
+				stage_number == 1
+			)
+			var positions: Array = simulation.positions
+			var types: Array = simulation.types
+			var budget := CapsuleDropDirector.calculate_budget(destructible_count)
+			total_stage_runs += 1
+			total_drops += types.size()
+			total_density += float(types.size()) / destructible_count
+			capped_stage_runs += 1 if types.size() == budget else 0
+			var stage_has_break := false
+
+			if positions[0] < 3 or positions[0] > 6:
+				opening_violations += 1
+			if types.size() > budget:
+				budget_violations += 1
+			for drop_index in range(types.size()):
+				var power_type: int = types[drop_index]
+				player_drops += 1 if power_type == PowerUp.PowerType.EXTRA_BALL else 0
+				stage_has_break = stage_has_break or power_type == PowerUp.PowerType.BREAK
+				if drop_index == 0:
+					continue
+				var gap: int = positions[drop_index] - positions[drop_index - 1]
+				if gap < 3 or gap > 10:
+					gap_violations += 1
+				if types[drop_index] == types[drop_index - 1]:
+					repeat_violations += 1
+			stages_with_break += 1 if stage_has_break else 0
+
+	var mean_drops := float(total_drops) / total_stage_runs
+	var mean_density := total_density / total_stage_runs
+	var cap_rate := float(capped_stage_runs) / total_stage_runs
+	var mean_player_drops := float(player_drops) / total_stage_runs
+	var break_stage_rate := float(stages_with_break) / total_stage_runs
+	print(
+		"Capsule simulation: %.3f drops/stage, %.3f%% density, %.2f%% caps."
+		% [mean_drops, mean_density * 100.0, cap_rate * 100.0]
+	)
+	_check(
+		opening_violations == 0,
+		"Every simulated stage rewards its first 3-6 eligible breaks."
+	)
+	_check(budget_violations == 0, "Capsule simulations never exceed the stage budget.")
+	_check(gap_violations == 0, "Drop gaps stay inside the cooldown and pity bounds.")
+	_check(repeat_violations == 0, "Capsule types never repeat immediately.")
+	_check(
+		mean_drops >= 5.3 and mean_drops <= 5.7,
+		"Campaign simulations average 5.3-5.7 capsule drops per stage."
+	)
+	_check(
+		mean_density >= 0.115 and mean_density <= 0.128,
+		"Campaign simulations keep mean capsule density near 12%."
+	)
+	_check(
+		cap_rate >= 0.80 and cap_rate <= 0.90,
+		"Most, but not all, simulated stages exhaust their capsule budget."
+	)
+	_check(mean_player_drops <= 0.4, "Player capsules remain below 0.4 spawns per stage.")
+	_check(break_stage_rate <= 0.08, "Break appears in no more than 8% of simulated stages.")
+
+
+func _test_dynamic_power_up_flow() -> void:
+	GameSession.new_game(1, 4242)
+	var gameplay: Gameplay = GAMEPLAY_SCENE.instantiate()
+	get_tree().root.add_child(gameplay)
+	await get_tree().process_frame
+
+	var destroyed_bricks := 0
+	while gameplay.power_ups.get_child_count() == 0 and destroyed_bricks < 6:
+		var target := gameplay.level.bricks.get_child(0) as Brick
+		target.hit()
+		destroyed_bricks += 1
 		await get_tree().process_frame
 
-		var power_up_types: Dictionary[int, bool] = {}
-		var drop_count := 0
-		for child in level.bricks.get_children():
-			var brick := child as Brick
-			if brick.power_up_type < 0:
-				continue
-			drop_count += 1
-			power_up_types[brick.power_up_type] = true
+	_check(
+		destroyed_bricks >= 3 and destroyed_bricks <= 6,
+		"Gameplay spawns the first capsule within 3-6 brick breaks."
+	)
+	_check(gameplay.power_ups.get_child_count() == 1, "A drop decision spawns one falling capsule.")
+	var chip := gameplay.power_ups.get_child(0) as PowerUp
+	_check(
+		chip.power_type in [
+			PowerUp.PowerType.WIDE,
+			PowerUp.PowerType.SLOW,
+			PowerUp.PowerType.MULTI,
+		],
+		"The first gameplay capsule uses the beginner pool."
+	)
+	_check(
+		not GameSession.starter_capsule_pending,
+		"Spawning the first gameplay capsule consumes the run-level beginner reward."
+	)
+	var score_before_pickup := GameSession.score
+	var collected_type := chip.power_type
+	chip.collect(gameplay.paddle)
+	await get_tree().process_frame
+	_check(
+		GameSession.score == score_before_pickup + Gameplay.POWER_UP_SCORE,
+		"Collecting a dynamic capsule awards 100 points."
+	)
+	_check(
+		gameplay.get_active_power_up() == collected_type,
+		"The dynamically selected capsule applies its gameplay effect."
+	)
 
-		_check(
-			drop_count == PowerUp.POWER_TYPE_COUNT,
-			"Stage %02d assigns exactly eight capsule drops." % stage_number
-		)
-		_check(
-			power_up_types.size() == PowerUp.POWER_TYPE_COUNT,
-			"Stage %02d includes every capsule type." % stage_number
-		)
-
-		level.queue_free()
-		await get_tree().process_frame
+	for active_ball in gameplay._get_balls():
+		active_ball.deactivate()
+	gameplay.queue_free()
+	await get_tree().process_frame
+	GameSession.new_game()
 
 
 func _test_brick_rules() -> void:
@@ -687,8 +876,7 @@ func _test_brick_rules() -> void:
 		func(
 			points: int,
 			_world_position: Vector2,
-			_effect_color: Color,
-			_power_up_type: int
+			_effect_color: Color
 		) -> void:
 			silver_score[0] += points
 	)
@@ -711,8 +899,7 @@ func _test_brick_rules() -> void:
 		func(
 			_points: int,
 			_world_position: Vector2,
-			_effect_color: Color,
-			_power_up_type: int
+			_effect_color: Color
 		) -> void:
 			gold_broken[0] = true
 	)
@@ -834,12 +1021,9 @@ func _test_level_content() -> void:
 	_check(level.get_brick_count() == 64, "Level 1 has a 64-brick rainbow gate.")
 
 	var total_score := 0
-	var power_up_types := {}
 	for child in level.bricks.get_children():
 		var brick := child as Brick
 		total_score += brick.score
-		if brick.power_up_type >= 0:
-			power_up_types[brick.power_up_type] = true
 
 	_check(total_score == 5650, "The rainbow gate has the expected score value.")
 	_check(_brick_score_at(level, Vector2(64, 52)) == 90, "The red crown is present.")
@@ -849,16 +1033,6 @@ func _test_level_content() -> void:
 	_check(_brick_score_at(level, Vector2(64, 92)) == 70, "The light-blue row is present.")
 	_check(_brick_score_at(level, Vector2(48, 102)) == 100, "The blue clusters are present.")
 	_check(_brick_score_at(level, Vector2(80, 112)) == 110, "The magenta foundation is present.")
-	_check(
-		power_up_types.size() == PowerUp.POWER_TYPE_COUNT,
-		"Each stage contains all eight power-up drops."
-	)
-	for power_type in range(PowerUp.POWER_TYPE_COUNT):
-		_check(
-			power_up_types.has(power_type),
-			"Stage 1 includes power-up type %d." % power_type
-		)
-
 	var level_cleared := [false]
 	level.level_cleared.connect(func() -> void: level_cleared[0] = true)
 	for child in level.bricks.get_children():
@@ -880,8 +1054,7 @@ func _test_brick_scores_once() -> void:
 		func(
 			points: int,
 			_world_position: Vector2,
-			_effect_color: Color,
-			_power_up_type: int
+			_effect_color: Color
 		) -> void:
 			awards[0] += points
 	)
@@ -1288,19 +1461,7 @@ func _test_power_up_effects() -> void:
 	get_tree().root.add_child(gameplay)
 	await get_tree().process_frame
 
-	var wide_brick := _find_power_up_brick(
-		gameplay.level,
-		PowerUp.PowerType.WIDE
-	)
-	_check(wide_brick != null, "The stage exposes a Wide drop brick.")
-	wide_brick.hit()
-	await get_tree().process_frame
-	_check(gameplay.power_ups.get_child_count() == 1, "Marked bricks spawn power-up chips.")
-
-	var wide_chip := gameplay.power_ups.get_child(0) as PowerUp
-	_check(wide_chip.power_type == PowerUp.PowerType.WIDE, "The Wide brick drops Wide.")
-	wide_chip.collect(gameplay.paddle)
-	await get_tree().process_frame
+	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
 	_check(gameplay.paddle.paddle_width == 56.0, "Wide enlarges the paddle.")
 	_check(
 		gameplay.get_active_power_up() == PowerUp.PowerType.WIDE,
@@ -1491,6 +1652,7 @@ func _test_life_loss_preserves_round() -> void:
 	await get_tree().process_frame
 
 	var level_id := gameplay.level.get_instance_id()
+	var drop_director_id := gameplay._drop_director.get_instance_id()
 	var silver_brick: Brick
 	var regular_brick: Brick
 	for child in gameplay.level.bricks.get_children():
@@ -1527,6 +1689,10 @@ func _test_life_loss_preserves_round() -> void:
 	_check(
 		gameplay.level.get_instance_id() == level_id,
 		"Life loss keeps the same level instance."
+	)
+	_check(
+		gameplay._drop_director.get_instance_id() == drop_director_id,
+		"Life loss preserves capsule budget and pity state."
 	)
 	_check(
 		gameplay.level.get_brick_count() == remaining_bricks,
@@ -1686,13 +1852,48 @@ func _brick_at(level: Level01, position: Vector2) -> Brick:
 	return null
 
 
-func _find_power_up_brick(level: Level01, power_type: int) -> Brick:
-	for child in level.bricks.get_children():
-		var brick := child as Brick
-		if brick.power_up_type == power_type:
-			return brick
+func _simulate_capsule_stage(
+	run_seed: int,
+	stage_number: int,
+	destructible_brick_count: int,
+	starter_pool_pending: bool
+) -> Dictionary:
+	var director := CapsuleDropDirector.new(
+		run_seed,
+		stage_number,
+		destructible_brick_count,
+		starter_pool_pending
+	)
+	var positions: Array[int] = []
+	var types: Array[int] = []
+	for break_number in range(1, destructible_brick_count + 1):
+		var snapshot := CapsuleDropDirector.DropSnapshot.new(
+			destructible_brick_count - break_number,
+			0,
+			-1,
+			GameSessionState.STARTING_BALLS,
+			1
+		)
+		var power_type := director.on_brick_destroyed(snapshot)
+		if power_type < 0:
+			continue
+		positions.append(break_number)
+		types.append(power_type)
 
-	return null
+	return {
+		"positions": positions,
+		"types": types,
+	}
+
+
+func _get_destructible_layout_count(stage_number: int) -> int:
+	var count := 0
+	for row in LevelCatalog.get_layout(stage_number):
+		for character in row:
+			if character != " " and character != "X":
+				count += 1
+	return count
+
 
 func _check(condition: bool, message: String) -> void:
 	if condition:

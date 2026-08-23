@@ -39,6 +39,7 @@ main scene.
 
 - 33 original stages
 - Eight capsules: Expand, Slow, Disruption, Catch, Laser, Break, Player, and Thru
+- Protected random drops reward the opening and prevent long dry streaks
 - Standard, multi-hit Silver, and indestructible Gold bricks
 - Pixel-perfect 256×240 rendering with integer scaling
 - Distinct procedurally generated music for the menu and every stage

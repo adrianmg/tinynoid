@@ -4,8 +4,7 @@ extends Node2D
 signal brick_broken(
 	points: int,
 	world_position: Vector2,
-	effect_color: Color,
-	power_up_type: int
+	effect_color: Color
 )
 signal brick_struck(
 	world_position: Vector2,
@@ -71,29 +70,7 @@ func _spawn_bricks() -> void:
 			if not brick.indestructible:
 				destructible_bricks.append(brick)
 
-	_assign_power_ups(destructible_bricks)
 	_remaining_bricks = destructible_bricks.size()
-
-
-func _assign_power_ups(candidates: Array[Brick]) -> void:
-	if candidates.size() < 4:
-		return
-
-	var types := [
-		PowerUp.PowerType.WIDE,
-		PowerUp.PowerType.SLOW,
-		PowerUp.PowerType.MULTI,
-		PowerUp.PowerType.EXTRA_BALL,
-		PowerUp.PowerType.CATCH,
-		PowerUp.PowerType.LASER,
-		PowerUp.PowerType.BREAK,
-		PowerUp.PowerType.THRU,
-	]
-	for type_index in range(types.size()):
-		var brick_index := floori(
-			float(type_index + 1) * candidates.size() / 9.0
-		)
-		candidates[brick_index].power_up_type = types[type_index]
 
 
 func _on_brick_struck(
@@ -107,11 +84,10 @@ func _on_brick_struck(
 func _on_brick_broken(
 	points: int,
 	world_position: Vector2,
-	effect_color: Color,
-	power_up_type: int
+	effect_color: Color
 ) -> void:
 	_remaining_bricks -= 1
-	brick_broken.emit(points, world_position, effect_color, power_up_type)
+	brick_broken.emit(points, world_position, effect_color)
 
 	if _remaining_bricks == 0:
 		level_cleared.emit()

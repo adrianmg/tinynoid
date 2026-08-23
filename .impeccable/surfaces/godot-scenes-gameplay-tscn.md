@@ -21,15 +21,17 @@ action on keyboard, mouse, or controller.
 - Original procedural graphics and audio only.
 - Score, stage, balls, launch readiness, stage clear, and game over are visible.
 - 33 original layouts progress through eight motif families.
-- Seven marked bricks per stage drop Expand, Slow, Disruption, Catch, Laser,
-  Break, and Player chips.
+- Protected random drops select Expand, Slow, Disruption, Catch, Laser, Thru,
+  Break, or Player within a density-based 2-8 capsule budget.
+- The first stage reward arrives within 3-6 eligible brick breaks; later drops
+  use a two-break cooldown and a ten-break pity limit.
 - Score colors follow the documented 50–120 table; Silver scales by stage and
   Gold is indestructible without blocking clear.
 - Every brick contact uses bounded generated pitch variation with no immediate
   repetition.
 - Surviving Silver contacts flash white and use a sharper high-pitch waveform.
 - Gold contacts use a low double-clunk to communicate indestructibility.
-- Expand, Slow, Disruption, Catch, and Laser are mutually exclusive until
+- Expand, Slow, Disruption, Catch, Laser, and Thru are mutually exclusive until
   replacement, life loss, or stage clear; Break and Player are immediate.
 - Life loss re-serves in place, preserving destroyed bricks, Silver damage, and
   score while resetting temporary effects and falling chips.
