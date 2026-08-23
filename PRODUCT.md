@@ -55,8 +55,8 @@ a Web export. Playtesting uses mouse, keyboard, or a standard game controller.
 
 ## Brand Commitments
 
-The game and project are named **Pikonoid**, subtitled
-**A tiny tribute by Adrian Mato**.
+The game and project are named **TINYNOID**, subtitled
+**A tiny tribute from me to the original game**.
 The experience should remain immediate, arcade-readable, and playful rather
 than becoming a simulation or content-heavy campaign.
 

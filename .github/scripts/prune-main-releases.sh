@@ -7,11 +7,10 @@ mapfile -t stale_tags < <(
   gh release list \
     --repo "$GITHUB_REPOSITORY" \
     --limit 200 \
-    --json tagName,isPrerelease,publishedAt \
+    --json tagName,publishedAt \
     --jq '
       [
         .[]
-        | select(.isPrerelease)
         | select(.tagName | startswith("main-build-"))
       ]
       | sort_by(.publishedAt)
@@ -27,4 +26,3 @@ for tag in "${stale_tags[@]}"; do
     --cleanup-tag \
     --yes
 done
-

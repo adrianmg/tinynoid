@@ -32,7 +32,7 @@ func _initialize() -> void:
 
 
 func _write_header(output: FileAccess) -> void:
-	output.store_line("# Pikonoid stage layouts")
+	output.store_line("# TINYNOID stage layouts")
 	output.store_line("")
 	output.store_line(
 		"These grids are generated directly from `LevelCatalog`. "

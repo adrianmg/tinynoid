@@ -4,18 +4,18 @@ set -euo pipefail
 readonly DIST_DIR="${1:-dist}"
 readonly SHORT_SHA="${GITHUB_SHA:0:7}"
 readonly TAG="main-build-${GITHUB_RUN_NUMBER}-${SHORT_SHA}"
-readonly TITLE="Pikonoid main build #${GITHUB_RUN_NUMBER} (${SHORT_SHA})"
+readonly TITLE="TINYNOID main build #${GITHUB_RUN_NUMBER} (${SHORT_SHA})"
 readonly EXPECTED_ASSETS=(
   "SHA256SUMS"
-  "pikonoid-linux-x86_64.tar.gz"
-  "pikonoid-macos-universal.zip"
-  "pikonoid-web.zip"
-  "pikonoid-windows-x86_64.zip"
+  "tinynoid-linux-x86_64.tar.gz"
+  "tinynoid-macos-universal.zip"
+  "tinynoid-web.zip"
+  "tinynoid-windows-x86_64.zip"
 )
 
 body_file="$(mktemp)"
 cat > "$body_file" <<BODY
-Automated Pikonoid build from \`${GITHUB_SHA}\`.
+Automated TINYNOID build from \`${GITHUB_SHA}\`.
 
 - Godot: 4.7.2 stable
 - Workflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
@@ -34,7 +34,6 @@ else
     --title "$TITLE" \
     --notes-file "$body_file" \
     --generate-notes \
-    --prerelease \
     --draft
   gh release upload "$TAG" "${DIST_DIR}"/* \
     --repo "$GITHUB_REPOSITORY"
@@ -57,7 +56,7 @@ fi
 gh release edit "$TAG" \
   --repo "$GITHUB_REPOSITORY" \
   --draft=false \
-  --prerelease
+  --prerelease=false
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   printf 'tag=%s\n' "$TAG" >> "$GITHUB_OUTPUT"
@@ -70,4 +69,3 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
 fi
 
 rm -f "$body_file"
-

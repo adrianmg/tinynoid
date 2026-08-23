@@ -13,7 +13,7 @@ const WHITE := Color("#f7f4ff")
 const YELLOW := Color("#ffd84a")
 const MAGENTA := Color("#c967e8")
 const OPTION_Y := [94, 116, 138]
-const SUBTITLE := "A tiny tribute by Adrian Mato"
+const SUBTITLE := "A tiny tribute from me to the original game"
 const INSTRUCTION_LINES := [
 	"Arrow keys to move & select",
 	"Enter / Spacebar to select",
@@ -43,7 +43,7 @@ func _draw() -> void:
 
 	draw_rect(Rect2(52, 46, 16, 2), MAGENTA)
 	draw_rect(Rect2(188, 46, 16, 2), MAGENTA)
-	PixelFont.draw_centered(self, "PIKONOID", 42, CYAN, 2)
+	PixelFont.draw_centered(self, "TINYNOID", 42, CYAN, 2)
 	PixelFont.draw_centered(self, SUBTITLE, 61, WHITE)
 
 	for option_index in range(OPTION_Y.size()):

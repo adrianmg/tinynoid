@@ -26,7 +26,7 @@ few seconds using mouse, keyboard, or controller.
 - Focus movement and option activation use distinct generated chiptune sounds.
 - The menu theme is a mysterious, dreamy 88 BPM space overture with sparse
   melody, fifth shimmer, and alternating-bar percussion.
-- The subtitle reads `A TINY TRIBUTE BY ADRIAN MATO`.
+- The subtitle reads `A TINY TRIBUTE FROM ME TO THE ORIGINAL GAME`.
 - The bottom contains only `ARROW KEYS TO MOVE & SELECT`,
   `ENTER / SPACEBAR TO SELECT`, and Escape instructions.
 

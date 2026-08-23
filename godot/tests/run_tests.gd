@@ -272,8 +272,8 @@ func _test_pixel_perfect_settings() -> void:
 		"The logical viewport is 256 pixels wide."
 	)
 	_check(
-		ProjectSettings.get_setting("application/config/name") == "Pikonoid",
-		"The Godot project is named Pikonoid."
+		ProjectSettings.get_setting("application/config/name") == "TINYNOID",
+		"The Godot project is named TINYNOID."
 	)
 	_check(
 		ProjectSettings.get_setting("display/window/size/viewport_height") == 240,
@@ -342,7 +342,7 @@ func _test_main_menu() -> void:
 	get_tree().root.add_child(menu)
 	await get_tree().process_frame
 	_check(
-		MainMenu.SUBTITLE == "A tiny tribute by Adrian Mato",
+		MainMenu.SUBTITLE == "A tiny tribute from me to the original game",
 		"The menu carries the requested tribute subtitle."
 	)
 	_check(

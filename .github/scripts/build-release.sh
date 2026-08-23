@@ -27,32 +27,32 @@ test -s "${BUILD_DIR}/web/index.pck"
 
 "$GODOT_BIN" --headless --path "$PROJECT_DIR" \
   --export-release "Windows Desktop"
-test -s "${BUILD_DIR}/windows/Pikonoid.exe"
+test -s "${BUILD_DIR}/windows/TINYNOID.exe"
 
 "$GODOT_BIN" --headless --path "$PROJECT_DIR" \
   --export-release "Linux/X11"
-test -s "${BUILD_DIR}/linux/Pikonoid.x86_64"
-chmod +x "${BUILD_DIR}/linux/Pikonoid.x86_64"
-"${BUILD_DIR}/linux/Pikonoid.x86_64" --headless --quit-after 2
+test -s "${BUILD_DIR}/linux/TINYNOID.x86_64"
+chmod +x "${BUILD_DIR}/linux/TINYNOID.x86_64"
+"${BUILD_DIR}/linux/TINYNOID.x86_64" --headless --quit-after 2
 
 "$GODOT_BIN" --headless --path "$PROJECT_DIR" \
   --export-release "macOS"
-test -s "${BUILD_DIR}/macos/Pikonoid.zip"
-unzip -tq "${BUILD_DIR}/macos/Pikonoid.zip"
-unzip -l "${BUILD_DIR}/macos/Pikonoid.zip" \
-  | grep -q 'Pikonoid.app/Contents/Info.plist'
-unzip -l "${BUILD_DIR}/macos/Pikonoid.zip" \
-  | grep -q 'Pikonoid.app/Contents/MacOS/Pikonoid'
+test -s "${BUILD_DIR}/macos/TINYNOID.zip"
+unzip -tq "${BUILD_DIR}/macos/TINYNOID.zip"
+unzip -l "${BUILD_DIR}/macos/TINYNOID.zip" \
+  | grep -q 'TINYNOID.app/Contents/Info.plist'
+unzip -l "${BUILD_DIR}/macos/TINYNOID.zip" \
+  | grep -q 'TINYNOID.app/Contents/MacOS/TINYNOID'
 
 (
   cd "${BUILD_DIR}/web"
-  zip -X -q -r "${DIST_DIR}/pikonoid-web.zip" .
+  zip -X -q -r "${DIST_DIR}/tinynoid-web.zip" .
 )
 
 (
   cd "${BUILD_DIR}/windows"
-  zip -X -q "${DIST_DIR}/pikonoid-windows-x86_64.zip" \
-    Pikonoid.exe
+  zip -X -q "${DIST_DIR}/tinynoid-windows-x86_64.zip" \
+    TINYNOID.exe
 )
 
 source_date_epoch="${SOURCE_DATE_EPOCH:-$(git -C "$ROOT" log -1 --format=%ct)}"
@@ -63,19 +63,19 @@ tar \
   --group=0 \
   --numeric-owner \
   -C "${BUILD_DIR}/linux" \
-  -czf "${DIST_DIR}/pikonoid-linux-x86_64.tar.gz" \
-  Pikonoid.x86_64
+  -czf "${DIST_DIR}/tinynoid-linux-x86_64.tar.gz" \
+  TINYNOID.x86_64
 
-cp "${BUILD_DIR}/macos/Pikonoid.zip" \
-  "${DIST_DIR}/pikonoid-macos-universal.zip"
+cp "${BUILD_DIR}/macos/TINYNOID.zip" \
+  "${DIST_DIR}/tinynoid-macos-universal.zip"
 
 (
   cd "$DIST_DIR"
   sha256sum \
-    pikonoid-web.zip \
-    pikonoid-windows-x86_64.zip \
-    pikonoid-linux-x86_64.tar.gz \
-    pikonoid-macos-universal.zip \
+    tinynoid-web.zip \
+    tinynoid-windows-x86_64.zip \
+    tinynoid-linux-x86_64.tar.gz \
+    tinynoid-macos-universal.zip \
     > SHA256SUMS
   sha256sum --check SHA256SUMS
 )

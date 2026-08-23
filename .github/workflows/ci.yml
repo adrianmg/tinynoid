@@ -43,5 +43,5 @@ jobs:
       - name: Validate Web preset
         run: |
           "$GODOT_BIN" --headless --quiet --path godot \
-            --export-pack Web /tmp/pikonoid.pck
-          test -s /tmp/pikonoid.pck
+            --export-pack Web /tmp/tinynoid.pck
+          test -s /tmp/tinynoid.pck
