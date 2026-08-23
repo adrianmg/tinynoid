@@ -180,6 +180,14 @@ than persistent states.
 Laser collection expands the HUD label into
 `LASER. PRESS SPACEBAR TO FIRE` for three seconds.
 
+Capsule timing uses protected randomness rather than marked bricks. The first
+drop arrives on the third through sixth eligible destruction; later drops have
+a two-brick cooldown and a rising pity chance that guarantees a drop by the
+tenth eligible destruction. A density-based 2-8 capsule budget prevents sparse
+stages from becoming reward floods. The first capsule of a new run is limited to
+Expand, Slow, or Disruption, while later weighted choices avoid immediate and
+currently active repeats.
+
 ### HUD
 
 A single compact top strip: score on the left, stage centered, and balls on the

@@ -37,6 +37,9 @@ a Web export. Playtesting uses mouse, keyboard, or a standard game controller.
   game-over, and replay.
 - Eight falling capsule mechanics: Expand, Slow, Disruption, Catch, Laser,
   Break, Player, and Thru.
+- Seeded capsule luck guarantees the first stage reward within 3-6 eligible
+  brick breaks, prevents later dry streaks beyond ten, and scales each stage to
+  a 2-8 drop budget based on its destructible brick count.
 - Expand, Slow, Disruption, Catch, Laser, and Thru are mutually exclusive and
   reset on life loss or stage clear; Break and Player are immediate.
 - Brick destruction and Silver damage persist when a life is lost.
