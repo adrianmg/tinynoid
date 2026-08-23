@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/game_over.gd" id="1_game_over"]
+[ext_resource type="Script" path="res://scripts/retro_arena.gd" id="2_arena"]
+
+[node name="GameOver" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_game_over")
+
+[node name="Background" type="Node2D" parent="."]
+z_index = -10
+script = ExtResource("2_arena")

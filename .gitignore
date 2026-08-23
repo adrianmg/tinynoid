@@ -28,3 +28,8 @@ sysinfo.txt
 # Builds
 *.apk
 *.unitypackage
+
+# Godot generated files and local exports
+/godot/.godot/
+/godot/build/
+/.ci/
