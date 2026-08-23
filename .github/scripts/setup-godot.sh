@@ -4,6 +4,7 @@ set -euo pipefail
 readonly GODOT_VERSION="4.7.2"
 readonly GODOT_CHANNEL="stable"
 readonly GODOT_RELEASE="${GODOT_VERSION}-${GODOT_CHANNEL}"
+readonly GODOT_TEMPLATE_VERSION="${GODOT_VERSION}.${GODOT_CHANNEL}"
 readonly EDITOR_ARCHIVE="Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
 readonly TEMPLATE_ARCHIVE="Godot_v${GODOT_RELEASE}_export_templates.tpz"
 readonly EDITOR_SHA512="9aa00f7a605200940bce3027a567b782f49bd8e940dd06ae9e987bd65aee1b1467edd56ed84fcdcbdd44354bf613bdbb4e5d2913e925850368e150c59ed54c65"
@@ -11,7 +12,7 @@ readonly TEMPLATE_SHA512="ca4d71c4d7b81dfc15d1a98baa07534aa95b03fdda78a0075b0667
 readonly RELEASE_URL="https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}"
 readonly TOOL_DIR="${GITHUB_WORKSPACE:-$(pwd)}/.ci/godot"
 readonly GODOT_BIN="${TOOL_DIR}/Godot_v${GODOT_RELEASE}_linux.x86_64"
-readonly TEMPLATE_DIR="${HOME}/.local/share/godot/export_templates/${GODOT_RELEASE}"
+readonly TEMPLATE_DIR="${HOME}/.local/share/godot/export_templates/${GODOT_TEMPLATE_VERSION}"
 
 download_and_verify() {
   local url="$1"
