@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-22T20:50:00Z",
+  "title": "Design System: Pikonoid",
+  "extensions": {
+    "colorMeta": {
+      "cartridge-void": {
+        "role": "neutral",
+        "displayName": "Cartridge Void",
+        "canonical": "#050611",
+        "tonalRamp": ["#050611", "#111329", "#18244f", "#28366f", "#47548e", "#6f79ad", "#aab0d0", "#edeefa"]
+      },
+      "ice-cyan": {
+        "role": "primary",
+        "displayName": "Ice Cyan",
+        "canonical": "#74ddff",
+        "tonalRamp": ["#092f42", "#124d66", "#1d6e8c", "#2d91b4", "#45b7d9", "#74ddff", "#b2edff", "#ebfbff"]
+      },
+      "score-yellow": {
+        "role": "secondary",
+        "displayName": "Score Yellow",
+        "canonical": "#ffd84a",
+        "tonalRamp": ["#3b2c08", "#614a10", "#896a19", "#b58d25", "#ddb333", "#ffd84a", "#ffe98d", "#fff8d5"]
+      },
+      "brick-red": {
+        "role": "tertiary",
+        "displayName": "Brick Red",
+        "canonical": "#f15b68",
+        "tonalRamp": ["#3d1018", "#651925", "#8b263d", "#b43a50", "#d84a5d", "#f15b68", "#f5a0a8", "#fde5e7"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "2x Bitmap Display",
+        "purpose": "Outcome titles only."
+      },
+      "label": {
+        "displayName": "3x5 Cartridge Label",
+        "purpose": "HUD, data, mastheads, and action prompts."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "four-step-shatter",
+        "value": "4 opaque distance/color frames over 350ms",
+        "purpose": "Brick destruction without smooth fading."
+      },
+      {
+        "name": "stepped-afterimage",
+        "value": "2px integer-snapped samples over 120ms",
+        "purpose": "Ball speed readability in a fixed palette."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "native",
+        "value": "256x240"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Result Panel",
+      "kind": "custom",
+      "refersTo": "result-panel",
+      "description": "Square terminal-state panel with hard color rules.",
+      "html": "<section class=\"ds-result\"><strong>STAGE CLEAR</strong><span>SCORE</span><b>005120</b><small>PRESS FIRE TO REPLAY</small></section>",
+      "css": ".ds-result{width:200px;height:112px;background:#111329;color:#f7f4ff;border-radius:0;border-top:2px solid #74ddff;border-bottom:2px solid #287fc4;display:grid;place-items:center;padding:18px;font-family:monospace;text-transform:uppercase}.ds-result strong{color:#56d46f}.ds-result b{color:#ffd84a}.ds-result small{color:#74ddff}"
+    },
+    {
+      "name": "Rainbow Brick",
+      "kind": "custom",
+      "refersTo": "brick",
+      "description": "Hard-edged score brick, durability-marked Silver, or indestructible Gold.",
+      "html": "<span class=\"ds-brick\"></span>",
+      "css": ".ds-brick{display:block;width:14px;height:8px;border-radius:0;background:#f15b68;border:1px solid #111329;box-shadow:inset 0 1px #f8a3aa,inset 0 -1px #8b263d}"
+    },
+    {
+      "name": "Arena Rail",
+      "kind": "custom",
+      "description": "Segmented ice-blue machine frame.",
+      "html": "<span class=\"ds-rail\"></span>",
+      "css": ".ds-rail{display:block;width:8px;height:64px;border-radius:0;background:repeating-linear-gradient(to bottom,#287fc4 0 7px,#12345b 7px 8px);border-left:1px solid #74ddff}"
+    },
+    {
+      "name": "Main Menu",
+      "kind": "custom",
+      "description": "Cartridge-style Play, Window, and Sound selector.",
+      "html": "<nav class=\"ds-menu\"><strong>PIKONOID</strong><small>A TINY TRIBUTE BY ADRIAN MATO</small><b>PLAY STAGE 17</b><span>WINDOW 3X</span><span>SOUND III</span><small>ARROW KEYS TO MOVE &amp; SELECT</small><small>ENTER / SPACEBAR TO SELECT</small><small>ESC TO QUIT</small></nav>",
+      "css": ".ds-menu{width:184px;background:#111329;color:#f7f4ff;border-radius:0;border-top:2px solid #74ddff;border-bottom:2px solid #287fc4;display:grid;gap:12px;padding:12px 16px;font-family:monospace;text-align:center;text-transform:uppercase}.ds-menu b{color:#ffd84a;outline:2px solid #74ddff;background:#12345b}.ds-menu small{color:#74ddff}"
+    },
+    {
+      "name": "Power-up Chip",
+      "kind": "custom",
+      "description": "Original falling Wide, Slow, Multi-ball, or Extra Ball pickup.",
+      "html": "<span class=\"ds-power-up\">M</span>",
+      "css": ".ds-power-up{display:grid;place-items:center;width:12px;height:8px;border-radius:0;background:#c967e8;color:#f7f4ff;border:1px solid #111329;box-shadow:inset 1px 0 #f7f4ff,inset -1px 0 #71358f;font:5px monospace}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Neon Cartridge",
+    "overview": "Pikonoid looks as if its entire world were authored inside a constrained console cartridge: every mark lands on the pixel grid, every color has a named role, and depth comes from deliberate one-pixel bands rather than modern effects.",
+    "keyCharacteristics": [
+      "Native 256x240 composition with integer-only scaling across 33 stages.",
+      "Hand-authored 3x5 bitmap lettering.",
+      "Opaque fixed-palette colors; no smooth alpha transitions.",
+      "Hard-edged geometry and one-pixel highlight/shadow bands.",
+      "Dense gameplay framed by cartridge-black negative space."
+    ],
+    "rules": [
+      {
+        "name": "The Opaque Palette Rule",
+        "body": "Gameplay effects move through named colors in discrete steps; they never dissolve through continuous alpha fades.",
+        "section": "colors"
+      },
+      {
+        "name": "The Cartridge Copy Rule",
+        "body": "Keep visible text uppercase and action-oriented; instructions name the logical action, not one device-specific key.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Soft Light Rule",
+        "body": "Do not add glows, blur shadows, gradients, or semi-transparent overlays. If an object needs depth, draw another hard pixel.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do align positions, motion artifacts, and decorative marks to whole pixels.",
+      "Do reuse the rail, starfield, masthead, and fixed palette across every state.",
+      "Do express feedback through color steps, frame swaps, and discrete motion.",
+      "Do keep instructions device-neutral by naming mapped actions."
+    ],
+    "donts": [
+      "Don't use copied ROM data, extracted game assets, or exact legacy layouts.",
+      "Don't add gradients, glass, blur, antialiasing, or continuous alpha fades.",
+      "Don't introduce rounded cards, stock fonts, or modern dashboard patterns.",
+      "Don't let interface chrome compete with the playfield."
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/level_01.gd" id="1_level"]
+[ext_resource type="Script" path="res://scripts/retro_arena.gd" id="2_arena"]
+
+[node name="Level01" type="Node2D"]
+script = ExtResource("1_level")
+
+[node name="Background" type="Node2D" parent="."]
+z_index = -10
+script = ExtResource("2_arena")
+
+[node name="Bricks" type="Node2D" parent="."]
+z_index = 1

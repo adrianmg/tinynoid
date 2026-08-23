@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://tests/stage_showcase.gd" id="1_showcase"]
+[ext_resource type="PackedScene" path="res://scenes/gameplay.tscn" id="2_gameplay"]
+
+[node name="StageShowcase" type="Node2D"]
+script = ExtResource("1_showcase")
+
+[node name="Gameplay" parent="." instance=ExtResource("2_gameplay")]
