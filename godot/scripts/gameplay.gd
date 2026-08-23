@@ -17,6 +17,7 @@ const LASER_SCENE: PackedScene = preload(
 )
 const POWER_UP_SCORE := 100
 const LASER_COOLDOWN := 0.22
+const LASER_TIP := "Laser. Press SPACEBAR to fire"
 
 @onready var level: Level01 = $Level01
 @onready var paddle: PaddleController = $Paddle
@@ -157,9 +158,20 @@ func apply_power_up(power_type: int) -> void:
 		_active_power_up = power_type
 
 	GameSession.award(POWER_UP_SCORE)
+	var tip := (
+		LASER_TIP
+		if power_type == PowerUp.PowerType.LASER
+		else PowerUp.get_type_label(power_type)
+	)
+	var tip_duration := (
+		3.0
+		if power_type == PowerUp.PowerType.LASER
+		else 1.5
+	)
 	hud.show_power_up(
-		PowerUp.get_type_label(power_type),
-		PowerUp.get_type_color(power_type)
+		tip,
+		PowerUp.get_type_color(power_type),
+		tip_duration
 	)
 	if power_type == PowerUp.PowerType.BREAK:
 		call_deferred("_activate_break")

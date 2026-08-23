@@ -342,7 +342,7 @@ func _test_main_menu() -> void:
 	get_tree().root.add_child(menu)
 	await get_tree().process_frame
 	_check(
-		MainMenu.SUBTITLE == "A tiny tribute from me to the original game",
+		MainMenu.SUBTITLE == "A tiny tribute from Adrian Mato to Arkanoid",
 		"The menu carries the requested tribute subtitle."
 	)
 	_check(
@@ -1302,6 +1302,14 @@ func _test_power_up_effects() -> void:
 	gameplay.apply_power_up(PowerUp.PowerType.LASER)
 	_check(gameplay.paddle.laser_enabled, "Laser equips the paddle emitters.")
 	_check(not gameplay.paddle.catch_enabled, "Laser replaces Catch.")
+	_check(
+		gameplay.hud.get_power_up_label() == Gameplay.LASER_TIP,
+		"Laser collection shows the Spacebar firing tip."
+	)
+	_check(
+		is_equal_approx(gameplay.hud.get_power_up_time_left(), 3.0),
+		"Laser usage tip remains visible for three seconds."
+	)
 	gameplay._spawn_lasers()
 	_check(gameplay.lasers.get_child_count() == 2, "Laser fires a paired shot.")
 
