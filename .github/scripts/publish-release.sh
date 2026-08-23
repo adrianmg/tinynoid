@@ -34,7 +34,6 @@ else
     --title "$TITLE" \
     --notes-file "$body_file" \
     --generate-notes \
-    --prerelease \
     --draft
   gh release upload "$TAG" "${DIST_DIR}"/* \
     --repo "$GITHUB_REPOSITORY"
@@ -57,7 +56,7 @@ fi
 gh release edit "$TAG" \
   --repo "$GITHUB_REPOSITORY" \
   --draft=false \
-  --prerelease
+  --prerelease=false
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
   printf 'tag=%s\n' "$TAG" >> "$GITHUB_OUTPUT"

@@ -3,6 +3,18 @@
 🎮 A tiny tribute to the classic NES Arkanoid, built in Godot with a twist:
 procedurally generated graphics and music.
 
+## Download latest build
+
+[▶ Play TINYNOID in your browser](https://adrianmg.github.io/tinynoid/)
+
+| Platform | Download |
+| --- | --- |
+| Web | [tinynoid-web.zip](https://github.com/adrianmg/tinynoid/releases/latest/download/tinynoid-web.zip) |
+| Windows x86_64 | [tinynoid-windows-x86_64.zip](https://github.com/adrianmg/tinynoid/releases/latest/download/tinynoid-windows-x86_64.zip) |
+| Linux x86_64 | [tinynoid-linux-x86_64.tar.gz](https://github.com/adrianmg/tinynoid/releases/latest/download/tinynoid-linux-x86_64.tar.gz) |
+| macOS universal | [tinynoid-macos-universal.zip](https://github.com/adrianmg/tinynoid/releases/latest/download/tinynoid-macos-universal.zip) |
+| Checksums | [SHA256SUMS](https://github.com/adrianmg/tinynoid/releases/latest/download/SHA256SUMS) |
+
 ## Screenshots
 
 | Main menu | Stage 1 — Rainbow Gate | Stage 17 — Waveform II |
