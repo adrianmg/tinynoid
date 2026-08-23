@@ -198,8 +198,8 @@ are printed below the panel. Help text names logical actions (`MOVE CURSOR`,
 and Right change the starting stage from 1 through 33 when Play is selected.
 Sound is rendered as `III`, `II`, `I`, or `OFF`, preserving the cartridge
 language while communicating four discrete master-volume states. The title
-subtitle reads `A TINY TRIBUTE BY ADRIAN MATO`. The lower region contains only
-three keyboard instructions: `ARROW KEYS TO MOVE & SELECT`,
+subtitle reads `A TINY TRIBUTE FROM ME TO THE ORIGINAL GAME`. The lower region
+contains only three keyboard instructions: `ARROW KEYS TO MOVE & SELECT`,
 `ENTER / SPACEBAR TO SELECT`, and Escape.
 Moving focus produces a short descending pulse tick; activating an option uses
 a brighter ascending two-note chirp. Both are generated, persistent across scene
