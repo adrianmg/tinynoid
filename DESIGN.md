@@ -170,11 +170,13 @@ side cannot pinch the ball against an arena rail.
 ### Power-up Chip
 
 A 12x8 falling chip with a black outline, saturated type color, one white edge,
-and one dark edge. A centered bitmap glyph differentiates the seven mechanics:
-`E` Expand, `S` Slow, `D` Disruption, `C` Catch, `L` Laser, `B` Break, and `P`
-Player. Collection repeats the full mechanic name above the paddle. Temporary
-effect labels describe the one currently active effect; Break and Player are
-immediate events rather than persistent states.
+and one dark edge. A centered bitmap glyph differentiates the eight mechanics:
+`E` Expand, `S` Slow, `D` Disruption, `C` Catch, `L` Laser, `B` Break, `P`
+Player, and `T` Thru. Collection repeats the full mechanic name above the
+paddle. Thru adds a yellow spark cross to every active ball; it passes through
+destructible bricks but still bounces off Gold. Temporary effect labels describe
+the one currently active effect; Break and Player are immediate events rather
+than persistent states.
 Laser collection expands the HUD label into
 `LASER. PRESS SPACEBAR TO FIRE` for three seconds.
 

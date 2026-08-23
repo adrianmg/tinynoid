@@ -150,6 +150,9 @@ func apply_power_up(power_type: int) -> void:
 			paddle.enable_laser()
 		PowerUp.PowerType.BREAK:
 			pass
+		PowerUp.PowerType.THRU:
+			for active_ball in _get_balls():
+				active_ball.set_piercing(true)
 		_:
 			push_error("Unknown power-up type: %d" % power_type)
 			return
@@ -299,6 +302,9 @@ func _clear_active_power_up() -> void:
 			_collapse_to_single_ball()
 		PowerUp.PowerType.CATCH, PowerUp.PowerType.LASER:
 			paddle.clear_power_mode()
+		PowerUp.PowerType.THRU:
+			for active_ball in _get_balls():
+				active_ball.set_piercing(false)
 
 	_active_power_up = -1
 	_clear_lasers()
