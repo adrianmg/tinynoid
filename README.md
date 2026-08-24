@@ -3,7 +3,7 @@
 🎮 A tiny tribute to the classic NES Arkanoid, built in Godot with a twist:
 procedurally generated graphics and music.
 
-## Download latest build
+## Play on any platform
 
 [▶ Play TINYNOID in your browser](https://adrianmg.github.io/tinynoid/)
 
