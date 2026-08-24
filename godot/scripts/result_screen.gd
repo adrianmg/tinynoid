@@ -7,7 +7,7 @@ const BLUE := Color("#287fc4")
 const CYAN := Color("#74ddff")
 const WHITE := Color("#f7f4ff")
 const YELLOW := Color("#ffd84a")
-const OPTION_Y := [151, 166]
+const OPTION_Y := [151, 166, 181]
 
 var result_title := ""
 var result_color := WHITE
@@ -53,8 +53,9 @@ func _draw() -> void:
 
 	var player_name := PlayerProfile.get_display_name()
 	if PlayerProfile.has_player_name():
-		PixelAvatar.draw(self, player_name, Vector2(47, 104))
-	PixelFont.draw_centered(self, player_name, 105, WHITE)
+		_draw_identity_row(player_name)
+	else:
+		PixelFont.draw_centered(self, player_name, 105, WHITE)
 	PixelFont.draw_centered(self, "SCORE", 118, WHITE)
 	PixelFont.draw_centered(self, "%06d" % GameSession.score, 128, YELLOW)
 	if share_enabled and not _score_status.is_empty():
@@ -70,13 +71,13 @@ func _draw() -> void:
 			)
 		PixelFont.draw_centered(
 			self,
-			primary_label if option_index == 0 else "SHARE SCORE",
+			_get_option_label(option_index),
 			OPTION_Y[option_index],
 			YELLOW if option_index == _selected_index else WHITE
 		)
 
 	if not _share_status.is_empty():
-		PixelFont.draw_centered(self, _share_status, 182, CYAN)
+		PixelFont.draw_centered(self, _share_status, 207, CYAN)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -129,6 +130,20 @@ func _activate_selected() -> void:
 	UiAudio.play_confirm()
 	if _selected_index == 0:
 		_request_primary_action()
+		return
+
+	if _selected_index == 1:
+		var twitter_opened := ScoreShare.share_on_twitter(
+			PlayerProfile.get_display_name(),
+			GameSession.score,
+			share_outcome
+		)
+		_share_status = (
+			"TWITTER OPENED"
+			if twitter_opened
+			else "TWITTER UNAVAILABLE"
+		)
+		queue_redraw()
 		return
 
 	if _share_png.is_empty():
@@ -201,4 +216,28 @@ func _get_option_at(position: Vector2) -> int:
 
 
 func _option_count() -> int:
-	return 2 if share_enabled else 1
+	return 3 if share_enabled else 1
+
+
+func _get_option_label(option_index: int) -> String:
+	match option_index:
+		0:
+			return primary_label
+		1:
+			return "SHARE ON TWITTER"
+		2:
+			return "SHARE"
+	return ""
+
+
+func _draw_identity_row(player_name: String) -> void:
+	var text_size := PixelFont.measure(player_name)
+	var group_width := 8.0 + 2.0 + text_size.x
+	var group_x := floorf((256.0 - group_width) / 2.0)
+	PixelAvatar.draw(self, player_name, Vector2(group_x, 103))
+	PixelFont.draw_text(
+		self,
+		player_name,
+		Vector2(group_x + 10.0, 105),
+		WHITE
+	)

@@ -33,8 +33,8 @@ a Web export. Playtesting uses mouse, keyboard, or a standard game controller.
 - Godot 4.7.2 with GDScript and the Compatibility renderer.
 - A 256x240 logical canvas with integer scaling.
 - Main menu with Play, window scale/fullscreen, and four persistent sound levels.
-- Persistent player identity, recent-player activity, and a scrollable global
-  Top 100 with local fallback.
+- Post-game X/Twitter handle capture, recent-player activity, and a scrollable
+  global Top 100 with local fallback.
 - 33 original stages, selectable starts, progression, score, stage-clear,
   game-over, and replay.
 - Only campaigns started at Stage 1 qualify for global submission; terminal

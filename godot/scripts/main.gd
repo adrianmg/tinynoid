@@ -34,7 +34,6 @@ func _show_main_menu() -> void:
 	var main_menu: MainMenu = MAIN_MENU_SCENE.instantiate()
 	_replace_screen(main_menu)
 	main_menu.start_requested.connect(_start_new_game)
-	main_menu.edit_player_requested.connect(_show_name_entry)
 	main_menu.high_scores_requested.connect(_show_high_scores)
 	main_menu.quit_requested.connect(_quit_game)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -101,11 +100,11 @@ func _finish_run(outcome: String) -> void:
 		_present_terminal(outcome)
 		return
 
-	if bool(run_result.eligible) and not PlayerProfile.identity_chosen:
+	if not PlayerProfile.has_player_name():
 		Leaderboard.record_score(run_result, "GUEST")
 		_pending_submission = run_result
 		_pending_terminal = outcome
-		_show_name_entry(true)
+		_show_name_entry()
 		return
 
 	Leaderboard.record_score(
@@ -115,12 +114,12 @@ func _finish_run(outcome: String) -> void:
 	_present_terminal(outcome)
 
 
-func _show_name_entry(for_score_submission: bool = false) -> void:
+func _show_name_entry() -> void:
 	var name_entry: NameEntryScreen = NAME_ENTRY_SCENE.instantiate()
 	name_entry.configure(
 		PlayerProfile.player_name,
 		int(_pending_submission.get("score", 0)),
-		for_score_submission
+		true
 	)
 	_replace_screen(name_entry)
 	name_entry.name_confirmed.connect(_on_name_confirmed)

@@ -2,7 +2,6 @@ class_name MainMenu
 extends Control
 
 signal start_requested(stage_number: int)
-signal edit_player_requested
 signal high_scores_requested
 signal quit_requested
 
@@ -14,7 +13,7 @@ const CYAN := Color("#74ddff")
 const WHITE := Color("#f7f4ff")
 const YELLOW := Color("#ffd84a")
 const MAGENTA := Color("#c967e8")
-const OPTION_Y := [82, 98, 114, 130, 146]
+const OPTION_Y := [86, 106, 126, 146]
 const RECENT_SCORE_Y := 174
 const SUBTITLE := "A TINY ARKANOID TRIBUTE BY @ADRIANMG"
 const INSTRUCTION_LINES := [
@@ -38,7 +37,6 @@ func _ready() -> void:
 	)
 	AudioSettings.level_changed.connect(_on_audio_level_changed)
 	DisplayController.mode_changed.connect(_on_display_mode_changed)
-	PlayerProfile.name_changed.connect(_on_player_name_changed)
 	Leaderboard.latest_score_updated.connect(_on_latest_score_updated)
 	_recent_score = Leaderboard.cached_latest_score()
 	if not _recent_score.is_empty():
@@ -186,9 +184,9 @@ func _change_selected(direction: int) -> void:
 				LevelCatalog.STAGE_COUNT + 1
 			)
 			queue_redraw()
-		3:
+		2:
 			DisplayController.cycle_window_mode(direction)
-		4:
+		3:
 			AudioSettings.cycle_level(direction)
 
 
@@ -197,12 +195,10 @@ func _activate_selected() -> void:
 		0:
 			start_requested.emit(_selected_stage)
 		1:
-			edit_player_requested.emit()
-		2:
 			high_scores_requested.emit()
-		3:
+		2:
 			DisplayController.cycle_window_mode()
-		4:
+		3:
 			AudioSettings.cycle_level(-1)
 
 
@@ -211,12 +207,10 @@ func _get_option_text(option_index: int) -> String:
 		0:
 			return "PLAY STAGE %02d" % _selected_stage
 		1:
-			return "PLAYER %s" % PlayerProfile.get_display_name()
-		2:
 			return "HIGH SCORES"
-		3:
+		2:
 			return "WINDOW %s" % DisplayController.get_mode_label()
-		4:
+		3:
 			return "SOUND %s" % AudioSettings.get_level_label()
 
 	return ""
@@ -239,10 +233,6 @@ func _on_display_mode_changed(_label: String) -> void:
 
 
 func _on_audio_level_changed(_level: int) -> void:
-	queue_redraw()
-
-
-func _on_player_name_changed(_player_name: String) -> void:
 	queue_redraw()
 
 

@@ -206,8 +206,8 @@ when the platform supports file sharing and falls back to a prefilled X post.
 ### Main Menu
 
 A compact ink panel inside the persistent arena frame. One cyan-edged selection
-band identifies focus. Options expose Play, Player, High Scores, Window mode,
-and Sound; shortcuts are printed below the panel. A single live line below the
+band identifies focus. Options expose Play, High Scores, Window mode, and
+Sound; shortcuts are printed below the panel. A single live line below the
 panel reports the latest globally submitted player and score. Help text names
 logical actions (`MOVE CURSOR`, `FIRE SELECT`) so keyboard, controller, and
 mouse remain equally valid. Left and Right change the starting stage from 1
@@ -234,9 +234,10 @@ octave lift.
 
 ### Player Identity and Leaderboard
 
-Names use the bitmap-safe `A-Z`, `0-9`, `@`, `_`, `.`, and `-` set and are
-entered through a physical keyboard or a visible cartridge-style glyph grid.
-Players may remain guests. Named players receive a deterministic,
+The first terminal score asks for an X/Twitter handle through a physical
+keyboard or a visible cartridge-style glyph grid. The `@` prefix is shown and
+stored implicitly, while entry is limited to X-compatible `A-Z`, `0-9`, and
+`_`. Players may skip and remain guests. Named players receive a deterministic,
 palette-constrained pixel avatar; no external photograph is required.
 
 The leaderboard shows fourteen of the global Top 100 rows at once. Up and Down

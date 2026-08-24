@@ -1,7 +1,7 @@
 class_name PixelAvatar
 extends RefCounted
 
-const PANEL := Color("#111329")
+const PANEL := Color("#12345b")
 const WHITE := Color("#f7f4ff")
 const COLORS := [
 	Color("#74ddff"),
@@ -75,7 +75,9 @@ static func _draw_mirrored_pixel(
 
 static func _identity_hash(identity: String) -> int:
 	var value := 2166136261
-	var normalized := identity.to_upper()
+	var normalized := identity.strip_edges().to_upper()
+	if normalized.begins_with("@"):
+		normalized = normalized.substr(1)
 	for index in range(normalized.length()):
 		value = (value ^ normalized.unicode_at(index)) * 16777619
 		value &= 0x7fffffff

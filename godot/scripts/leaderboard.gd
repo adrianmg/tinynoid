@@ -100,7 +100,11 @@ func request_latest_score() -> void:
 func record_score(run_result: Dictionary, player_name: String) -> bool:
 	var local_entry := {
 		"run_id": String(run_result.get("run_id", "")),
-		"player_name": PlayerProfileState.normalize_name(player_name),
+		"player_name": (
+			"GUEST"
+			if player_name == "GUEST"
+			else PlayerProfileState.format_handle(player_name)
+		),
 		"score": int(run_result.get("score", 0)),
 		"outcome": String(run_result.get("outcome", "")),
 		"completed_stage": int(run_result.get("completed_stage", 1)),
@@ -456,7 +460,7 @@ func _remember_local_score(entry: Dictionary) -> void:
 func _normalize_submission(submission: Dictionary) -> Dictionary:
 	return {
 		"run_id": String(submission.get("run_id", "")).strip_edges(),
-		"player_name": PlayerProfileState.normalize_name(
+		"player_name": PlayerProfileState.format_handle(
 			String(submission.get("player_name", ""))
 		),
 		"score": int(submission.get("score", -1)),
@@ -475,6 +479,8 @@ func _score_entry_from_response(
 	var player_name := String(value.get("player_name", ""))
 	if player_name.is_empty():
 		return {}
+	if player_name != "GUEST":
+		player_name = PlayerProfileState.format_handle(player_name)
 	return {
 		"rank": int(value.get("rank", fallback_rank)),
 		"player_name": player_name,

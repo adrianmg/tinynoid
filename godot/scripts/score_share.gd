@@ -10,6 +10,27 @@ static func share(
 	outcome: String,
 	png_data: PackedByteArray
 ) -> bool:
+	var text := _share_text(player_name, score, outcome)
+
+	if OS.has_feature("web"):
+		return _share_on_web(text, png_data)
+	return OS.shell_open(_x_intent_url(text)) == OK
+
+
+static func share_on_twitter(
+	player_name: String,
+	score: int,
+	outcome: String
+) -> bool:
+	var text := _share_text(player_name, score, outcome)
+	return OS.shell_open(_x_intent_url(text)) == OK
+
+
+static func _share_text(
+	player_name: String,
+	score: int,
+	outcome: String
+) -> String:
 	var text := "%s scored %d points in TINYNOID!" % [
 		player_name,
 		score,
@@ -19,10 +40,7 @@ static func share(
 			player_name,
 			score,
 		]
-
-	if OS.has_feature("web"):
-		return _share_on_web(text, png_data)
-	return OS.shell_open(_x_intent_url(text)) == OK
+	return text
 
 
 static func _share_on_web(

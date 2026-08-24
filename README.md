@@ -42,7 +42,7 @@ main scene.
 - Eight capsules: Expand, Slow, Disruption, Catch, Laser, Break, Player, and Thru
 - Protected random drops reward the opening and prevent long dry streaks
 - Global Top 100 scores with offline local history
-- Persistent player names and generated pixel avatars
+- Post-game X/Twitter handles and generated pixel avatars
 - Shareable Game Over and Campaign Clear score cards
 - Standard, multi-hit Silver, and indestructible Gold bricks
 - Pixel-perfect 256×240 rendering with integer scaling

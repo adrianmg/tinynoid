@@ -16,8 +16,8 @@ few seconds using mouse, keyboard, or controller.
 
 ## Content and constraints
 
-- Play, Player, High Scores, Window mode, and four Sound levels (`III`, `II`,
-  `I`, `OFF`) are the menu options.
+- Play, High Scores, Window mode, and four Sound levels (`III`, `II`, `I`,
+  `OFF`) are the menu options.
 - Left/Right changes the selected starting stage from 1 through 33.
 - F2 selects 2x, F3 selects 3x, and F11 or Alt+Enter toggles fullscreen.
 - Escape returns here from gameplay and quits when this menu is already active.
@@ -41,4 +41,6 @@ display shortcuts remain printed below the panel.
 
 ## Unresolved decisions
 
-Additional settings and remapping controls remain outside this prototype.
+Player identity is captured contextually after a terminal score rather than
+before play. Additional settings and remapping controls remain outside this
+prototype.

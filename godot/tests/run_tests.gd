@@ -341,15 +341,11 @@ func _test_main_menu() -> void:
 
 	var menu: MainMenu = MAIN_MENU_SCENE.instantiate()
 	var start_requested := [-1]
-	var edit_player_requested := [false]
 	var high_scores_requested := [false]
 	var quit_requested := [false]
 	menu.start_requested.connect(
 		func(stage_number: int) -> void:
 			start_requested[0] = stage_number
-	)
-	menu.edit_player_requested.connect(
-		func() -> void: edit_player_requested[0] = true
 	)
 	menu.high_scores_requested.connect(
 		func() -> void: high_scores_requested[0] = true
@@ -447,32 +443,27 @@ func _test_main_menu() -> void:
 	down_event.pressed = true
 	var move_count := UiAudio.get_move_count()
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 1, "Menu navigation selects Player.")
+	_check(menu.get_selected_index() == 1, "Menu navigation selects High Scores.")
 	_check(
 		UiAudio.get_move_count() == move_count + 1,
 		"Up/Down navigation plays the movement tick."
 	)
 
 	menu._unhandled_input(fire_event)
-	_check(edit_player_requested[0], "FIRE opens player identity.")
-
-	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 2, "Menu navigation selects High Scores.")
-	menu._unhandled_input(fire_event)
 	_check(high_scores_requested[0], "FIRE opens the global leaderboard.")
 
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 3, "Menu navigation selects Window mode.")
+	_check(menu.get_selected_index() == 2, "Menu navigation selects Window mode.")
 	DisplayController.set_window_scale(2)
 	menu._unhandled_input(right_event)
 	_check(DisplayController.get_mode_label() == "3X", "Menu arrows change window mode.")
 	_check(
-		UiAudio.get_move_count() >= move_count + 4,
+		UiAudio.get_move_count() >= move_count + 3,
 		"Left/Right interaction plays the movement tick."
 	)
 
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 4, "Menu navigation selects Sound.")
+	_check(menu.get_selected_index() == 3, "Menu navigation selects Sound.")
 	menu._unhandled_input(fire_event)
 	_check(menu.get_sound_level() == 2, "FIRE lowers Sound from III to II.")
 	menu._unhandled_input(fire_event)
@@ -534,7 +525,6 @@ func _test_main_menu() -> void:
 		false
 	) as MainMenu
 	application_menu._unhandled_input(down_event)
-	application_menu._unhandled_input(down_event)
 	application_menu._unhandled_input(fire_event)
 	await get_tree().process_frame
 	_check(
@@ -553,36 +543,59 @@ func _test_main_menu() -> void:
 		"Escape returns from High Scores to the main menu."
 	)
 
-	main.call("_show_name_entry")
-	await get_tree().process_frame
-	_check(
-		main.find_child("NameEntry", true, false) != null,
-		"The Player option opens the name-entry screen."
-	)
-	main.call("_show_main_menu")
-	await get_tree().process_frame
-
 	main.queue_free()
 	await get_tree().process_frame
 
 
 func _test_name_entry_and_high_scores() -> void:
+	var stored_handle := PlayerProfile.player_name
+	_check(
+		NameEntryScreen.TITLE == "X / TWITTER HANDLE",
+		"Handle entry explicitly names X and Twitter."
+	)
+	_check(
+		NameEntryScreen.HANDLE_HINT == "@ IS ADDED FOR YOU",
+		"Handle entry explains that the at sign is implicit."
+	)
 	var name_entry: NameEntryScreen = NAME_ENTRY_SCENE.instantiate()
 	name_entry.configure("@PLAYER", 1235, true)
 	get_tree().root.add_child(name_entry)
 	await get_tree().process_frame
 	name_entry.call("_append_character", "1")
 	_check(
-		name_entry.get_player_name() == "@PLAYER1",
+		name_entry.get_player_name() == "PLAYER1",
 		"The name-entry screen supports controller-style character entry."
 	)
 	name_entry.call("_delete_character")
 	_check(
-		name_entry.get_player_name() == "@PLAYER",
+		name_entry.get_player_name() == "PLAYER",
 		"The name-entry screen supports deletion."
+	)
+	name_entry.set("_selected_row", NameEntryScreen.GRID_ROWS - 1)
+	name_entry.set("_selected_column", 4)
+	name_entry.call("_move_horizontal", 1)
+	_check(
+		name_entry.get("_selected_column") == 0,
+		"The partial final handle row wraps without selecting empty cells."
 	)
 	name_entry.queue_free()
 	await get_tree().process_frame
+
+	PlayerProfile.player_name = ""
+	var main := MAIN_SCENE.instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	GameSession.award(1235)
+	main.call("_finish_run", "game_over")
+	await get_tree().process_frame
+	_check(
+		main.find_child("NameEntry", true, false) != null,
+		"A first-time handle prompt appears only after a terminal score."
+	)
+	main.queue_free()
+	await get_tree().process_frame
+	PlayerProfile.player_name = stored_handle
+	GameSession.new_game()
 
 	var entries: Array[Dictionary] = []
 	for entry_index in range(20):
@@ -815,12 +828,25 @@ func _test_leaderboard_client() -> void:
 func _test_player_profile() -> void:
 	_check(
 		PlayerProfileState.normalize_name("  @adrian_mg  ")
-		== "@ADRIAN_MG",
-		"Player names are normalized for storage and display."
+		== "ADRIAN_MG",
+		"X handles are stored without the implicit at sign."
 	)
 	_check(
 		PlayerProfileState.get_name_error("@ADRIAN_MG").is_empty(),
 		"Handles are valid player names."
+	)
+	_check(
+		PlayerProfileState.format_handle("adrian_mg") == "@ADRIAN_MG",
+		"X handles display with an implicit at sign."
+	)
+	_check(
+		PixelAvatar._identity_hash("ADRIAN_MG")
+		== PixelAvatar._identity_hash("@ADRIAN_MG"),
+		"Avatar identity ignores the display-only at sign."
+	)
+	_check(
+		not PlayerProfileState.get_name_error("NO-DASH").is_empty(),
+		"X handles reject characters Twitter does not support."
 	)
 	_check(
 		not PlayerProfileState.get_name_error("NO!").is_empty(),
@@ -1550,8 +1576,18 @@ func _test_result_screens() -> void:
 	game_over._unhandled_input(down_event)
 	_check(
 		game_over.get_selected_index() == 1,
-		"Game Over exposes Share Score as a second action."
+		"Game Over exposes Share on Twitter as a second action."
 	)
+	_check(
+		game_over.call("_get_option_label", 1) == "SHARE ON TWITTER",
+		"The Twitter share action is explicit."
+	)
+	game_over._unhandled_input(down_event)
+	_check(
+		game_over.get_selected_index() == 2,
+		"Game Over exposes generic Share as a third action."
+	)
+	game_over._unhandled_input(up_event)
 	game_over._unhandled_input(up_event)
 	game_over._unhandled_input(fire_event)
 	_check(retry_requested[0], "FIRE retries from Game Over.")
@@ -1581,8 +1617,14 @@ func _test_result_screens() -> void:
 	stage_clear._unhandled_input(down_event)
 	_check(
 		stage_clear.get_selected_index() == 1,
-		"Stage Clear exposes Share Score as a second action."
+		"Campaign Clear exposes Share on Twitter."
 	)
+	stage_clear._unhandled_input(down_event)
+	_check(
+		stage_clear.get_selected_index() == 2,
+		"Campaign Clear exposes generic Share."
+	)
+	stage_clear._unhandled_input(up_event)
 	stage_clear._unhandled_input(up_event)
 	stage_clear._unhandled_input(fire_event)
 	_check(replay_requested[0], "FIRE replays from Stage Clear.")

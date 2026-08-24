@@ -38,7 +38,7 @@ const GLYPHS := {
 	"X": ["101", "101", "010", "101", "101"],
 	"Y": ["101", "101", "010", "010", "010"],
 	"Z": ["111", "001", "010", "100", "111"],
-	"@": ["010", "101", "111", "100", "011"],
+	"@": ["01110", "10001", "10111", "10101", "01111"],
 	"#": ["101", "111", "101", "111", "101"],
 	"_": ["0", "0", "0", "0", "111"],
 	":": ["0", "1", "0", "1", "0"],
@@ -82,7 +82,7 @@ static func draw_text(
 					color
 				)
 
-		cursor_x += 4 * scale
+		cursor_x += _get_advance(character) * scale
 
 
 static func draw_centered(
@@ -102,4 +102,15 @@ static func measure(text: String, scale: int = 1) -> Vector2:
 	if text.is_empty():
 		return Vector2.ZERO
 
-	return Vector2((text.length() * 4 - 1) * scale, 5 * scale)
+	var width := 0
+	for character in text.to_upper():
+		width += (
+			4 * scale
+			if character == " "
+			else _get_advance(character) * scale
+		)
+	return Vector2(width - scale, 5 * scale)
+
+
+static func _get_advance(character: String) -> int:
+	return 6 if character == "@" else 4

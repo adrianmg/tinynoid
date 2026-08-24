@@ -20,11 +20,13 @@ leaving the controller-first game flow.
 
 - Fourteen leaderboard rows fit at once on the 256x240 canvas.
 - Up/Down moves one row, Left/Right moves one page, and the mouse wheel scrolls.
-- Names use `A-Z`, `0-9`, `@`, `_`, `.`, and `-`, with a visible glyph picker.
+- The first terminal score asks for an X/Twitter handle; `@` is shown and
+  stored implicitly rather than entered as a character.
+- Handles use X-compatible `A-Z`, `0-9`, and `_`, with a visible glyph picker.
 - Loading, empty, cached-offline, local-only, and error states remain explicit.
 - Avatars are deterministic palette pixels, never remote photography.
-- Score sharing prefers a generated PNG through the platform share sheet and
-  falls back to a text/link X intent.
+- Terminal results expose separate `SHARE ON TWITTER` and `SHARE` actions.
+  Generic sharing prefers a generated PNG through the platform share sheet.
 
 ## Chosen direction and memorable moment
 
