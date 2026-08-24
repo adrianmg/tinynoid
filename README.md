@@ -28,8 +28,8 @@ main scene.
 
 ### Controls
 
-- **Move:** Arrow keys, A/D, mouse, or controller stick
-- **Launch / Select:** Spacebar, Enter, mouse button, or controller face button
+- **Move:** Arrow keys, A/D, mouse, touch drag, or controller stick
+- **Launch / Select:** Spacebar, Enter, click, tap, or controller face button
 - **Restart stage:** R
 - **Return to menu:** Escape
 - **Window size:** F2 for 2×, F3 for 3×
@@ -38,7 +38,9 @@ main scene.
 ## Highlights
 
 - 33 original stages
-- Seven capsules: Expand, Slow, Disruption, Catch, Laser, Break, and Player
+- Eight capsules: Expand, Slow, Disruption, Catch, Laser, Break, Player, and Thru
+- Compatible capsule effects stack together until life loss or stage clear
+- Protected random drops reward the opening and prevent long dry streaks
 - Standard, multi-hit Silver, and indestructible Gold bricks
 - Pixel-perfect 256×240 rendering with integer scaling
 - Distinct procedurally generated music for the menu and every stage

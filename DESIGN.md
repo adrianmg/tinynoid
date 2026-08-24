@@ -170,20 +170,31 @@ side cannot pinch the ball against an arena rail.
 ### Power-up Chip
 
 A 12x8 falling chip with a black outline, saturated type color, one white edge,
-and one dark edge. A centered bitmap glyph differentiates the seven mechanics:
-`E` Expand, `S` Slow, `D` Disruption, `C` Catch, `L` Laser, `B` Break, and `P`
-Player. Collection repeats the full mechanic name above the paddle. Temporary
-effect labels describe the one currently active effect; Break and Player are
-immediate events rather than persistent states.
+and one dark edge. A centered bitmap glyph differentiates the eight mechanics:
+`E` Expand, `S` Slow, `D` Disruption, `C` Catch, `L` Laser, `B` Break, `P`
+Player, and `T` Thru. Collection repeats the full mechanic name above the
+paddle. Thru adds a yellow spark cross to every active ball; it passes through
+destructible bricks but still bounces off Gold. Expand, Slow, Disruption, Catch,
+Laser, and Thru are compatible and accumulate for the current life. Break and
+Player are immediate events rather than persistent states.
 Laser collection expands the HUD label into
-`LASER. PRESS SPACEBAR TO FIRE` for three seconds.
+`LASER. SPACEBAR OR TAP TO FIRE` for three seconds.
+
+Capsule timing uses protected randomness rather than marked bricks. The first
+drop arrives on the third through sixth eligible destruction; later drops have
+a two-brick cooldown and a rising pity chance that guarantees a drop by the
+tenth eligible destruction. A density-based 2-8 capsule budget prevents sparse
+stages from becoming reward floods. The first capsule of a new run is limited to
+Expand, Slow, or Disruption, while later weighted choices avoid immediate
+repeats and every effect that is already active.
 
 ### HUD
 
 A single compact top strip: score on the left, stage centered, and balls on the
 right. The product masthead is deliberately omitted during gameplay. The launch
-cue reads `PRESS SPACEBAR TO FIRE THE BALL`, is centered at the bottom, and
-disappears immediately after launch.
+cue reads `PRESS SPACEBAR OR TAP TO FIRE`, is centered at the bottom, and
+disappears immediately after launch. A primary touch positions the paddle; a
+drag steers it continuously; a tap launches held balls and fires Laser.
 
 ### Result Panel
 
@@ -195,14 +206,14 @@ the universal replay action.
 
 A compact ink panel inside the persistent arena frame. One cyan-edged selection
 band identifies focus. Options expose Play, Window mode, and Sound; shortcuts
-are printed below the panel. Help text names logical actions (`MOVE CURSOR`,
-`FIRE SELECT`) so keyboard, controller, and mouse remain equally valid. Left
-and Right change the starting stage from 1 through 33 when Play is selected.
+are printed below the panel. Help text names the keyboard and touch actions
+while direct option taps require no hover state. Left and Right change the
+starting stage from 1 through 33 when Play is selected.
 Sound is rendered as `III`, `II`, `I`, or `OFF`, preserving the cartridge
 language while communicating four discrete master-volume states. The title
-subtitle reads `A TINY TRIBUTE FROM ADRIAN MATO TO ARKANOID`. The lower region
-contains only three keyboard instructions: `ARROW KEYS TO MOVE & SELECT`,
-`ENTER / SPACEBAR TO SELECT`, and Escape.
+subtitle reads `A TINY TRIBUTE FROM ADRIAN MATO TO ARKANOID`. Tapping an option
+activates it directly. The lower region contains `ARROW KEYS TO MOVE & SELECT`,
+`ENTER / SPACE / TAP TO SELECT`, and Escape instructions.
 Moving focus produces a short descending pulse tick; activating an option uses
 a brighter ascending two-note chirp. Both are generated, persistent across scene
 changes, and follow the menu Sound setting.

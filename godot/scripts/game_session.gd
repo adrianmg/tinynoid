@@ -14,9 +14,11 @@ var score := 0
 var high_score := 0
 var balls_remaining := STARTING_BALLS
 var level := 1
+var run_seed := 0
+var starter_capsule_pending := true
 
 
-func new_game(start_level: int = 1) -> void:
+func new_game(start_level: int = 1, run_seed_override: int = -1) -> void:
 	assert(
 		start_level >= 1 and start_level <= LevelCatalog.STAGE_COUNT,
 		"Start level is outside the campaign."
@@ -24,6 +26,12 @@ func new_game(start_level: int = 1) -> void:
 	score = 0
 	balls_remaining = STARTING_BALLS
 	level = start_level
+	run_seed = (
+		run_seed_override
+		if run_seed_override >= 0
+		else _generate_run_seed()
+	)
+	starter_capsule_pending = true
 	_emit_state_changed()
 
 
@@ -56,5 +64,19 @@ func advance_level() -> void:
 	_emit_state_changed()
 
 
+func mark_starter_capsule_spawned() -> void:
+	starter_capsule_pending = false
+
+
 func _emit_state_changed() -> void:
 	state_changed.emit(score, balls_remaining, level)
+
+
+func _generate_run_seed() -> int:
+	return int(
+		(
+			Time.get_ticks_usec()
+			^ int(Time.get_unix_time_from_system() * 1000000.0)
+			^ randi()
+		) & 0x7fffffff
+	)

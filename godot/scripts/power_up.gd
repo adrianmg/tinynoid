@@ -11,11 +11,12 @@ enum PowerType {
 	CATCH,
 	LASER,
 	BREAK,
+	THRU,
 }
 
 const WHITE := Color("#f7f4ff")
 const OUTLINE := Color("#111329")
-const POWER_TYPE_COUNT := 7
+const POWER_TYPE_COUNT := 8
 
 @export var fall_speed := 70.0
 
@@ -80,6 +81,8 @@ static func get_type_label(type: int) -> String:
 			return "LASER"
 		PowerType.BREAK:
 			return "BREAK"
+		PowerType.THRU:
+			return "THRU"
 
 	return ""
 
@@ -100,6 +103,8 @@ static func get_type_symbol(type: int) -> String:
 			return "L"
 		PowerType.BREAK:
 			return "B"
+		PowerType.THRU:
+			return "T"
 
 	return "?"
 
@@ -120,5 +125,7 @@ static func get_type_color(type: int) -> Color:
 			return Color("#f15b68")
 		PowerType.BREAK:
 			return Color("#c967e8")
+		PowerType.THRU:
+			return Color("#ffd84a")
 
 	return WHITE
