@@ -1,0 +1,84 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay.gd" id="1_gameplay"]
+[ext_resource type="PackedScene" path="res://scenes/levels/level_01.tscn" id="2_level"]
+[ext_resource type="PackedScene" path="res://scenes/entities/paddle.tscn" id="3_paddle"]
+[ext_resource type="PackedScene" path="res://scenes/entities/ball.tscn" id="4_ball"]
+[ext_resource type="Script" path="res://scripts/retro_hud.gd" id="5_hud"]
+[ext_resource type="Script" path="res://scripts/brick_audio.gd" id="6_brick_audio"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_side_wall"]
+size = Vector2(8, 208)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ceiling"]
+size = Vector2(240, 8)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_death"]
+size = Vector2(224, 16)
+
+[node name="Gameplay" type="Node2D"]
+script = ExtResource("1_gameplay")
+
+[node name="Level01" parent="." instance=ExtResource("2_level")]
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="Left" type="StaticBody2D" parent="Walls"]
+position = Vector2(12, 136)
+collision_layer = 2
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Left"]
+shape = SubResource("RectangleShape2D_side_wall")
+
+[node name="Right" type="StaticBody2D" parent="Walls"]
+position = Vector2(244, 136)
+collision_layer = 2
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Right"]
+shape = SubResource("RectangleShape2D_side_wall")
+
+[node name="Ceiling" type="StaticBody2D" parent="Walls"]
+position = Vector2(128, 28)
+collision_layer = 2
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Walls/Ceiling"]
+shape = SubResource("RectangleShape2D_ceiling")
+
+[node name="Paddle" parent="." instance=ExtResource("3_paddle")]
+position = Vector2(128, 220)
+
+[node name="Balls" type="Node2D" parent="."]
+
+[node name="Ball" parent="Balls" instance=ExtResource("4_ball")]
+position = Vector2(128, 212)
+
+[node name="DeathZone" type="Area2D" parent="."]
+position = Vector2(128, 248)
+collision_layer = 16
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DeathZone"]
+shape = SubResource("RectangleShape2D_death")
+
+[node name="Effects" type="Node2D" parent="."]
+
+[node name="PowerUps" type="Node2D" parent="."]
+
+[node name="Lasers" type="Node2D" parent="."]
+
+[node name="BrickAudio" type="Node" parent="."]
+script = ExtResource("6_brick_audio")
+
+[node name="HudLayer" type="CanvasLayer" parent="."]
+layer = 50
+
+[node name="Hud" type="Control" parent="HudLayer"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 256.0
+offset_bottom = 240.0
+mouse_filter = 2
+script = ExtResource("5_hud")

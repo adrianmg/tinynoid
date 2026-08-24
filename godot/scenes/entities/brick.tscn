@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/brick.gd" id="1_brick"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_brick"]
+size = Vector2(14, 8)
+
+[node name="Brick" type="StaticBody2D" groups=["bricks"]]
+collision_layer = 8
+collision_mask = 1
+script = ExtResource("1_brick")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_brick")

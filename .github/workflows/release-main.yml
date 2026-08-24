@@ -1,0 +1,145 @@
+name: Release main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test and export
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Cache Godot editor and templates
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            .ci/godot
+            ~/.local/share/godot/export_templates/4.7.2-stable
+          key: godot-standard-4.7.2-linux-v1
+
+      - name: Install verified Godot tools
+        run: .github/scripts/setup-godot.sh
+
+      - name: Build release archives
+        run: .github/scripts/build-release.sh
+
+      - name: Attest release archives
+        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45
+        with:
+          subject-path: dist/*
+
+      - name: Upload release handoff
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        with:
+          path: godot/build/web
+          retention-days: 7
+
+  deploy-web:
+    name: Deploy Web to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy Web build
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout release scripts
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Download release handoff
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-dist
+          path: dist/
+
+      - name: Publish or repair release
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/publish-release.sh dist
+
+      - name: Retain newest 30 main releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP_COUNT: 30
+        run: .github/scripts/prune-main-releases.sh
+
+      - name: Write release summary
+        run: |
+          {
+            echo "## TINYNOID release"
+            echo
+            echo "- Tag: \`${{ steps.publish.outputs.tag }}\`"
+            echo "- URL: ${{ steps.publish.outputs.url }}"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  report-failure:
+    name: Report release failure
+    needs: [build, deploy-web, release]
+    if: >-
+      ${{
+        always()
+        && (
+          needs.build.result == 'failure'
+          || needs.deploy-web.result == 'failure'
+          || needs.release.result == 'failure'
+        )
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout failure reporter
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Open or update failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/report-release-failure.sh

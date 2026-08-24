@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/brick_break_effect.gd" id="1_effect"]
+
+[node name="BrickBreakEffect" type="Node2D"]
+z_index = 20
+script = ExtResource("1_effect")

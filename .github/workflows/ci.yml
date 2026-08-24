@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Godot tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Cache Godot editor
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: .ci/godot
+          key: godot-standard-editor-4.7.2-linux-v1
+
+      - name: Install verified Godot tools
+        env:
+          GODOT_INSTALL_TEMPLATES: 0
+        run: .github/scripts/setup-godot.sh
+
+      - name: Import project
+        run: '"$GODOT_BIN" --headless --editor --path godot --quit'
+
+      - name: Run test suite
+        run: '"$GODOT_BIN" --headless --path godot res://tests/test_runner.tscn'
+
+      - name: Validate Web preset
+        run: |
+          "$GODOT_BIN" --headless --quiet --path godot \
+            --export-pack Web /tmp/tinynoid.pck
+          test -s /tmp/tinynoid.pck

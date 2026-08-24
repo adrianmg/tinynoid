@@ -1,0 +1,70 @@
+; Engine configuration file.
+; Edit through the Godot editor when possible.
+
+config_version=5
+
+[application]
+
+config/name="TINYNOID"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+boot_splash/bg_color=Color(0, 0, 0, 1)
+boot_splash/show_image=false
+
+[autoload]
+
+AudioSettings="*res://scripts/audio_settings.gd"
+DisplayController="*res://scripts/display_controller.gd"
+PlayerProfile="*res://scripts/player_profile.gd"
+GameSession="*res://scripts/game_session.gd"
+Leaderboard="*res://scripts/leaderboard.gd"
+MusicController="*res://scripts/music_controller.gd"
+UiAudio="*res://scripts/ui_audio.gd"
+
+[display]
+
+window/size/viewport_width=256
+window/size/viewport_height=240
+window/size/window_width_override=768
+window/size/window_height_override=720
+window/stretch/mode="viewport"
+window/stretch/aspect="keep"
+window/stretch/scale_mode="integer"
+
+[input]
+
+move_left={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":65,"unicode":97), Object(InputEventJoypadMotion,"axis":0,"axis_value":-1.0)]
+}
+move_right={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":68,"unicode":100), Object(InputEventJoypadMotion,"axis":0,"axis_value":1.0)]
+}
+launch={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":32,"unicode":32), Object(InputEventMouseButton,"button_index":1), Object(InputEventJoypadButton,"button_index":0)]
+}
+restart={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":82,"unicode":114)]
+}
+
+[layer_names]
+
+2d_physics/layer_1="Ball"
+2d_physics/layer_2="World"
+2d_physics/layer_3="Paddle"
+2d_physics/layer_4="Brick"
+2d_physics/layer_5="Trigger"
+2d_physics/layer_6="Laser"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+textures/default_filters/use_nearest_mipmap_filter=false
+textures/vram_compression/import_etc2_astc=true
+2d/snap/snap_2d_transforms_to_pixel=true
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)
