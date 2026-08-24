@@ -36,17 +36,19 @@ func get_destructible_brick_count() -> int:
 
 
 func get_stage_name() -> String:
-	return LevelCatalog.get_stage_name(GameSession.level)
+	return GameSession.get_active_level_name()
 
 
 func _spawn_bricks() -> void:
-	var layout := LevelCatalog.get_layout(GameSession.level)
+	var layout := GameSession.get_active_layout()
 	var destructible_bricks: Array[Brick] = []
 
 	for row_index in range(layout.size()):
 		var pattern_row: String = layout[row_index]
 		for column_index in range(pattern_row.length()):
 			var brick_type := pattern_row.substr(column_index, 1)
+			if brick_type == ".":
+				brick_type = " "
 			if brick_type == " ":
 				continue
 

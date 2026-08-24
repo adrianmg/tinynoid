@@ -6,6 +6,8 @@ const VOID := Color("#050611")
 const WHITE := Color("#f7f4ff")
 const CYAN := Color("#74ddff")
 const YELLOW := Color("#ffd84a")
+const MAGENTA := Color("#c967e8")
+const COMMUNITY_INTRO_DURATION := 6.0
 
 var _score := 0
 var _balls := 3
@@ -14,6 +16,7 @@ var _launch_ready := true
 var _power_up_label := ""
 var _power_up_color := CYAN
 var _power_up_time_left := 0.0
+var _community_intro_time_left := 0.0
 
 
 func _ready() -> void:
@@ -22,6 +25,8 @@ func _ready() -> void:
 	GameSession.state_changed.connect(_on_state_changed)
 	PlayerProfile.name_changed.connect(_on_player_name_changed)
 	_on_state_changed(GameSession.score, GameSession.balls_remaining, GameSession.level)
+	if GameSession.is_community_run():
+		_community_intro_time_left = COMMUNITY_INTRO_DURATION
 
 
 func _draw() -> void:
@@ -53,13 +58,43 @@ func _draw() -> void:
 			_power_up_color
 		)
 
+	if _community_intro_time_left > 0.0 and GameSession.is_community_run():
+		draw_rect(Rect2(4, 25, 248, 19), VOID)
+		var community := GameSession.community_level
+		PixelFont.draw_centered(
+			self,
+			"%s — BY %s" % [
+				String(community.get("level_name", "")),
+				String(community.get("creator_display_name", "")),
+			],
+			27,
+			WHITE
+		)
+		PixelFont.draw_centered(
+			self,
+			"UNREVIEWED"
+			if String(community.get("status", "")) == "pending"
+			else "COMMUNITY LEVEL",
+			36,
+			MAGENTA
+			if String(community.get("status", "")) == "pending"
+			else CYAN
+		)
+
 
 func _process(delta: float) -> void:
-	if _power_up_time_left <= 0.0:
-		return
-
-	_power_up_time_left = maxf(0.0, _power_up_time_left - delta)
-	queue_redraw()
+	var redraw := false
+	if _power_up_time_left > 0.0:
+		_power_up_time_left = maxf(0.0, _power_up_time_left - delta)
+		redraw = true
+	if _community_intro_time_left > 0.0:
+		_community_intro_time_left = maxf(
+			0.0,
+			_community_intro_time_left - delta
+		)
+		redraw = true
+	if redraw:
+		queue_redraw()
 
 
 func _on_state_changed(score: int, balls_remaining: int, stage: int) -> void:
@@ -109,3 +144,7 @@ func clear_power_up_status() -> void:
 	_power_up_label = ""
 	_power_up_time_left = 0.0
 	queue_redraw()
+
+
+func get_community_intro_time_left() -> float:
+	return _community_intro_time_left

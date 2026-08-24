@@ -18,12 +18,18 @@ mkdir -p \
 "$GODOT_BIN" --headless --editor --path "$PROJECT_DIR" --quit
 "$GODOT_BIN" --headless --path "$PROJECT_DIR" \
   res://tests/test_runner.tscn
+node --test "${ROOT}/web/tests/"*.test.mjs
 
 "$GODOT_BIN" --headless --path "$PROJECT_DIR" \
   --export-release "Web"
 test -s "${BUILD_DIR}/web/index.html"
 test -s "${BUILD_DIR}/web/index.wasm"
 test -s "${BUILD_DIR}/web/index.pck"
+cp -R "${ROOT}/web/editor" "${BUILD_DIR}/web/editor"
+cp -R "${ROOT}/schema" "${BUILD_DIR}/web/schema"
+test -s "${BUILD_DIR}/web/editor/index.html"
+test -s "${BUILD_DIR}/web/editor/app.js"
+test -s "${BUILD_DIR}/web/schema/community-level-v1.schema.json"
 
 "$GODOT_BIN" --headless --path "$PROJECT_DIR" \
   --export-release "Windows Desktop"

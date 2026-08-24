@@ -16,8 +16,8 @@ few seconds using touch, mouse, keyboard, or controller.
 
 ## Content and constraints
 
-- Play, High Scores, Window mode, and four Sound levels (`III`, `II`, `I`,
-  `OFF`) are the menu options.
+- Play, Community Lab, High Scores, Window mode, and four Sound levels (`III`,
+  `II`, `I`, `OFF`) are the menu options.
 - Left/Right changes the selected starting stage from 1 through 33.
 - F2 selects 2x, F3 selects 3x, and F11 or Alt+Enter toggles fullscreen.
 - Escape returns here from gameplay and quits when this menu is already active.
@@ -37,7 +37,9 @@ few seconds using touch, mouse, keyboard, or controller.
 
 The menu behaves like a cartridge boot screen inside the same segmented arena.
 A cyan-edged focus band moves between terse bitmap options while the global
-display shortcuts remain printed below the panel.
+display shortcuts remain printed below the panel. Community Lab opens a
+dedicated cartridge-style chooser rather than overloading campaign stage
+selection.
 
 ## Unresolved decisions
 

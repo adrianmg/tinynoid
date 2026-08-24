@@ -6,15 +6,22 @@ const GAME_OVER_SCENE: PackedScene = preload("res://scenes/game_over.tscn")
 const STAGE_CLEAR_SCENE: PackedScene = preload("res://scenes/stage_clear.tscn")
 const NAME_ENTRY_SCENE: PackedScene = preload("res://scenes/name_entry.tscn")
 const HIGH_SCORES_SCENE: PackedScene = preload("res://scenes/high_scores.tscn")
+const COMMUNITY_LAB_SCENE: PackedScene = preload(
+	"res://scenes/community_lab.tscn"
+)
 
 var _current_screen: Node
 var _pending_submission: Dictionary = {}
 var _pending_terminal := ""
+var _deep_link_id := ""
+var _community_retry_id := ""
 
 
 func _ready() -> void:
 	GameSession.new_game()
+	CommunityCatalog.level_checked.connect(_on_level_checked)
 	_show_main_menu()
+	_try_community_deep_link()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -24,6 +31,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		and not _current_screen is MainMenu
 		and not _current_screen is NameEntryScreen
 		and not _current_screen is HighScoresScreen
+		and not _current_screen is CommunityLab
 	):
 		get_viewport().set_input_as_handled()
 		_show_main_menu()
@@ -34,6 +42,7 @@ func _show_main_menu() -> void:
 	var main_menu: MainMenu = MAIN_MENU_SCENE.instantiate()
 	_replace_screen(main_menu)
 	main_menu.start_requested.connect(_start_new_game)
+	main_menu.community_lab_requested.connect(_show_community_lab)
 	main_menu.high_scores_requested.connect(_show_high_scores)
 	main_menu.quit_requested.connect(_quit_game)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -49,6 +58,22 @@ func _show_gameplay() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 
+func _show_community_lab(notice: String = "") -> void:
+	MusicController.play_menu()
+	var community_lab: CommunityLab = COMMUNITY_LAB_SCENE.instantiate()
+	_replace_screen(community_lab)
+	community_lab.level_requested.connect(_start_community_game)
+	community_lab.back_requested.connect(_show_main_menu)
+	if not notice.is_empty():
+		community_lab.show_notice(notice)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _start_community_game(level_data: Dictionary) -> void:
+	GameSession.new_community_game(level_data)
+	_show_gameplay()
+
+
 func _show_game_over() -> void:
 	_finish_run("game_over")
 
@@ -61,6 +86,9 @@ func _present_game_over() -> void:
 
 
 func _show_stage_clear() -> void:
+	if GameSession.is_community_run():
+		_present_stage_clear()
+		return
 	if GameSession.level >= LevelCatalog.STAGE_COUNT:
 		_finish_run("campaign_clear")
 		return
@@ -81,13 +109,43 @@ func _start_new_game(start_level: int = 1) -> void:
 
 
 func _restart_current_stage() -> void:
+	if GameSession.is_community_run():
+		_retry_community_level()
+		return
 	var current_level := GameSession.level
 	GameSession.new_game(current_level)
 	_register_eligible_run()
 	_show_gameplay()
 
 
+func _retry_community_level() -> void:
+	var level_id := String(GameSession.community_level.get("id", ""))
+	if not CommunityCatalogClient.is_valid_id(level_id):
+		_fail_community_retry("Community level is no longer available.")
+		return
+	_show_community_lab("VERIFYING RETRY ONLINE")
+	_community_retry_id = level_id
+	if (
+		not CommunityCatalog.request_exact(level_id)
+		and _community_retry_id == level_id
+	):
+		_fail_community_retry("Could not start the retry freshness check.")
+
+
+func _fail_community_retry(message: String) -> void:
+	_community_retry_id = ""
+	GameSession.new_game()
+	_show_community_lab(
+		message
+		if not message.is_empty()
+		else "Community level is no longer available."
+	)
+
+
 func _continue_campaign() -> void:
+	if GameSession.is_community_run():
+		_show_main_menu()
+		return
 	if GameSession.level >= LevelCatalog.STAGE_COUNT:
 		_show_main_menu()
 		return
@@ -188,6 +246,38 @@ func _clear_pending_terminal() -> void:
 	_pending_terminal = ""
 
 
+func _try_community_deep_link() -> void:
+	if not OS.has_feature("web"):
+		return
+	var query: Variant = JavaScriptBridge.eval("window.location.search", true)
+	if typeof(query) != TYPE_STRING:
+		return
+	_deep_link_id = CommunityCatalogClient.deep_link_id(String(query))
+	if _deep_link_id.is_empty():
+		return
+	CommunityCatalog.request_exact(_deep_link_id)
+
+
+func _on_level_checked(
+	level_id: String,
+	playable: bool,
+	level_data: Dictionary,
+	message: String
+) -> void:
+	if level_id == _community_retry_id:
+		_community_retry_id = ""
+		if playable and CommunityCatalog.is_confirmed_playable(level_id):
+			_start_community_game(level_data)
+		else:
+			_fail_community_retry(message)
+		return
+	if level_id != _deep_link_id:
+		return
+	_deep_link_id = ""
+	if playable and CommunityCatalog.is_confirmed_playable(level_id):
+		_start_community_game(level_data)
+
+
 func _quit_game() -> void:
 	MusicController.stop_for_shutdown()
 	await get_tree().process_frame
@@ -197,9 +287,15 @@ func _quit_game() -> void:
 
 
 func _replace_screen(next_screen: Node) -> void:
+	_cancel_pending_community_navigation()
 	if is_instance_valid(_current_screen):
 		remove_child(_current_screen)
 		_current_screen.queue_free()
 
 	_current_screen = next_screen
 	add_child(_current_screen)
+
+
+func _cancel_pending_community_navigation() -> void:
+	_deep_link_id = ""
+	_community_retry_id = ""

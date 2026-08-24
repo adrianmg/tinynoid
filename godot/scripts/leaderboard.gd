@@ -135,6 +135,12 @@ func set_state_writer_for_tests(writer: Callable) -> void:
 
 
 func record_score(run_result: Dictionary, player_name: String) -> bool:
+	if (
+		String(run_result.get("run_kind", "campaign")) != "campaign"
+		or not String(run_result.get("community_id", "")).is_empty()
+	):
+		push_error("Community runs cannot be recorded on the leaderboard.")
+		return false
 	var local_entry := {
 		"run_id": String(run_result.get("run_id", "")),
 		"player_name": (
@@ -263,6 +269,11 @@ func is_score_submitted(run_id: String) -> bool:
 
 
 func validate_submission(submission: Dictionary) -> String:
+	if (
+		String(submission.get("run_kind", "campaign")) != "campaign"
+		or not String(submission.get("community_id", "")).is_empty()
+	):
+		return "Community runs cannot be submitted to the leaderboard."
 	if not _is_valid_run_id(String(submission.get("run_id", ""))):
 		return "Leaderboard submission requires a valid UUID run_id."
 

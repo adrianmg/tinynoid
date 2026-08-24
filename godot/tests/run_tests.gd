@@ -13,6 +13,9 @@ const GAME_OVER_SCENE: PackedScene = preload("res://scenes/game_over.tscn")
 const STAGE_CLEAR_SCENE: PackedScene = preload("res://scenes/stage_clear.tscn")
 const NAME_ENTRY_SCENE: PackedScene = preload("res://scenes/name_entry.tscn")
 const HIGH_SCORES_SCENE: PackedScene = preload("res://scenes/high_scores.tscn")
+const COMMUNITY_LAB_SCENE: PackedScene = preload(
+	"res://scenes/community_lab.tscn"
+)
 const BRICK_BREAK_EFFECT_SCENE: PackedScene = preload(
 	"res://scenes/effects/brick_break_effect.tscn"
 )
@@ -44,6 +47,7 @@ func _run() -> void:
 	await _test_audio_levels()
 	await _test_display_modes()
 	await _test_main_menu()
+	await _test_community_catalog()
 	await _test_name_entry_and_high_scores()
 	await _test_touch_controls()
 	await _test_campaign_routing()
@@ -362,6 +366,7 @@ func _test_main_menu() -> void:
 	var menu: MainMenu = MAIN_MENU_SCENE.instantiate()
 	var start_requested := [-1]
 	var high_scores_requested := [false]
+	var community_lab_requested := [false]
 	var quit_requested := [false]
 	menu.start_requested.connect(
 		func(stage_number: int) -> void:
@@ -369,6 +374,9 @@ func _test_main_menu() -> void:
 	)
 	menu.high_scores_requested.connect(
 		func() -> void: high_scores_requested[0] = true
+	)
+	menu.community_lab_requested.connect(
+		func() -> void: community_lab_requested[0] = true
 	)
 	menu.quit_requested.connect(func() -> void: quit_requested[0] = true)
 	get_tree().root.add_child(menu)
@@ -391,6 +399,7 @@ func _test_main_menu() -> void:
 	_check(PixelFont.GLYPHS.has("@"), "The bitmap font supports player handles.")
 	_check(PixelFont.GLYPHS.has("#"), "The bitmap font supports leaderboard ranks.")
 	_check(PixelFont.GLYPHS.has("_"), "The bitmap font supports handle underscores.")
+	_check(PixelFont.GLYPHS.has("—"), "The bitmap font supports attribution separators.")
 	menu.call(
 		"_on_latest_score_updated",
 		Leaderboard.STATE_READY,
@@ -463,17 +472,22 @@ func _test_main_menu() -> void:
 	down_event.pressed = true
 	var move_count := UiAudio.get_move_count()
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 1, "Menu navigation selects High Scores.")
+	_check(menu.get_selected_index() == 1, "Menu navigation selects Community Lab.")
 	_check(
 		UiAudio.get_move_count() == move_count + 1,
 		"Up/Down navigation plays the movement tick."
 	)
 
 	menu._unhandled_input(fire_event)
+	_check(community_lab_requested[0], "FIRE opens Community Lab.")
+
+	menu._unhandled_input(down_event)
+	_check(menu.get_selected_index() == 2, "Menu navigation selects High Scores.")
+	menu._unhandled_input(fire_event)
 	_check(high_scores_requested[0], "FIRE opens the global leaderboard.")
 
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 2, "Menu navigation selects Window mode.")
+	_check(menu.get_selected_index() == 3, "Menu navigation selects Window mode.")
 	DisplayController.set_window_scale(2)
 	menu._unhandled_input(right_event)
 	_check(DisplayController.get_mode_label() == "3X", "Menu arrows change window mode.")
@@ -483,7 +497,7 @@ func _test_main_menu() -> void:
 	)
 
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 3, "Menu navigation selects Sound.")
+	_check(menu.get_selected_index() == 4, "Menu navigation selects Sound.")
 	menu._unhandled_input(fire_event)
 	_check(menu.get_sound_level() == 2, "FIRE lowers Sound from III to II.")
 	menu._unhandled_input(fire_event)
@@ -548,6 +562,31 @@ func _test_main_menu() -> void:
 	application_menu._unhandled_input(fire_event)
 	await get_tree().process_frame
 	_check(
+		main.find_child("CommunityLab", true, false) != null,
+		"The main menu opens the Community Lab chooser."
+	)
+	var application_lab := main.find_child(
+		"CommunityLab",
+		true,
+		false
+	) as CommunityLab
+	application_lab._unhandled_input(cancel_event)
+	await get_tree().process_frame
+	_check(
+		main.find_child("MainMenu", true, false) != null,
+		"Escape returns from Community Lab to the main menu."
+	)
+
+	application_menu = main.find_child(
+		"MainMenu",
+		true,
+		false
+	) as MainMenu
+	application_menu._unhandled_input(down_event)
+	application_menu._unhandled_input(down_event)
+	application_menu._unhandled_input(fire_event)
+	await get_tree().process_frame
+	_check(
 		main.find_child("HighScores", true, false) != null,
 		"The main menu opens the Top 100 screen."
 	)
@@ -565,6 +604,337 @@ func _test_main_menu() -> void:
 
 	main.queue_free()
 	await get_tree().process_frame
+
+
+func _test_community_catalog() -> void:
+	var pending_level := _community_level_fixture()
+	var validation := CommunityCatalogClient.validate_level(pending_level)
+	_check(
+		validation.ok,
+		"The Community Lab accepts the canonical schema."
+	)
+	_check(
+		validation.level.layout.size() == 10
+		and String(validation.level.layout[0]).length() == 13,
+		"Validated community layouts preserve the 13 by 10 runtime grid."
+	)
+
+	var lowercase_name := pending_level.duplicate(true)
+	lowercase_name.level_name = "Neon Test"
+	_check(
+		not CommunityCatalogClient.validate_level(lowercase_name).ok,
+		"Community display fields must already be normalized uppercase."
+	)
+	var invalid_code := pending_level.duplicate(true)
+	invalid_code.layout[0] = "WWWWWWWW?...."
+	_check(
+		not CommunityCatalogClient.validate_level(invalid_code).ok,
+		"Community layouts reject non-native brick codes."
+	)
+	var too_few_bricks := pending_level.duplicate(true)
+	too_few_bricks.layout[0] = "WWWWWWW......"
+	too_few_bricks.populated_count = 7
+	_check(
+		not CommunityCatalogClient.validate_level(too_few_bricks).ok,
+		"Community layouts require eight destructible cells."
+	)
+	var quarantined := pending_level.duplicate(true)
+	quarantined.status = "quarantined"
+	_check(
+		not CommunityCatalogClient.validate_level(quarantined).ok,
+		"Quarantined community records are filtered out."
+	)
+	_check(
+		not CommunityCatalogClient.parse_exact_response(
+			[pending_level],
+			"cl_ffffffffffffffffffffffff"
+		).ok,
+		"An exact freshness response must match the requested id."
+	)
+	_check(
+		CommunityCatalogClient.parse_exact_response(
+			[],
+			pending_level.id
+		).get("unavailable", false),
+		"An empty exact response definitively marks a level unavailable."
+	)
+	_check(
+		CommunityCatalogClient.deep_link_id(
+			"?foo=bar&community=cl_0123456789abcdef01234567"
+		) == pending_level.id,
+		"Web community deep links accept canonical ids."
+	)
+
+	var catalog_client := CommunityCatalogClient.new()
+	get_tree().root.add_child(catalog_client)
+	await get_tree().process_frame
+	var test_cache_path := "user://community_levels_test.json"
+	catalog_client.set("_cache_path", test_cache_path)
+	_check(
+		catalog_client.call("_request_headers").size() == 2,
+		"Community requests include the publishable API key."
+	)
+	var response_body := JSON.stringify([pending_level]).to_utf8_buffer()
+	catalog_client.call(
+		"_on_catalog_completed",
+		HTTPRequest.RESULT_SUCCESS,
+		200,
+		PackedStringArray(),
+		response_body
+	)
+	_check(
+		not catalog_client.is_confirmed_playable(pending_level.id),
+		"Catalog and cached rows are not fresh enough to play."
+	)
+	catalog_client.set("_requested_id", pending_level.id)
+	catalog_client.call(
+		"_on_exact_completed",
+		HTTPRequest.RESULT_CANT_CONNECT,
+		0,
+		PackedStringArray(),
+		PackedByteArray()
+	)
+	_check(
+		catalog_client.cached_entries().size() == 1,
+		"Offline exact checks retain cached levels for later verification."
+	)
+	catalog_client.set("_requested_id", pending_level.id)
+	catalog_client.call(
+		"_on_exact_completed",
+		HTTPRequest.RESULT_SUCCESS,
+		200,
+		PackedStringArray(),
+		response_body
+	)
+	_check(
+		catalog_client.is_confirmed_playable(pending_level.id),
+		"An exact online lookup unlocks a pending or listed level."
+	)
+	catalog_client.set("_requested_id", pending_level.id)
+	catalog_client.call(
+		"_on_exact_completed",
+		HTTPRequest.RESULT_SUCCESS,
+		200,
+		PackedStringArray(),
+		JSON.stringify([quarantined]).to_utf8_buffer()
+	)
+	_check(
+		not catalog_client.is_confirmed_playable(pending_level.id)
+		and catalog_client.cached_entries().is_empty(),
+		"A definitive hidden response revokes playability and evicts memory cache."
+	)
+	var persisted_cache: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(test_cache_path)
+	)
+	_check(
+		persisted_cache is Dictionary
+		and persisted_cache.get("entries", []).is_empty(),
+		"A definitive hidden response evicts the persistent cache entry."
+	)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_cache_path))
+	catalog_client.queue_free()
+	await get_tree().process_frame
+
+	var lab: CommunityLab = COMMUNITY_LAB_SCENE.instantiate()
+	get_tree().root.add_child(lab)
+	await get_tree().process_frame
+	var lab_entries: Array[Dictionary] = [pending_level]
+	lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_STALE,
+		lab_entries,
+		"2026-08-23T22:00:00Z",
+		"offline"
+	)
+	_check(
+		lab.get_entries().size() == 1
+		and lab.get_status_text() == "OFFLINE CACHE - RECHECK REQUIRED",
+		"The chooser labels cached offline content and requires verification."
+	)
+	var original_catalog_entries := CommunityCatalog.cached_entries()
+	var singleton_catalog_entry: Array[Dictionary] = [pending_level]
+	CommunityCatalog.set("_entries", singleton_catalog_entry)
+	lab.set("_checking_id", pending_level.id)
+	lab.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community service is offline."
+	)
+	_check(
+		lab.get_entries().size() == 1
+		and lab.get_status_text() == "OFFLINE CACHE - RECHECK REQUIRED",
+		"An offline exact failure retains and labels the cached level."
+	)
+	var empty_catalog_entries: Array[Dictionary] = []
+	CommunityCatalog.set("_entries", empty_catalog_entries)
+	lab.set("_checking_id", pending_level.id)
+	lab.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community level is no longer available."
+	)
+	_check(
+		lab.get_entries().is_empty(),
+		"A definitively hidden level disappears from the chooser."
+	)
+	_check(
+		lab.get_status_text() != "OFFLINE CACHE - RECHECK REQUIRED",
+		"A definitively hidden level is not labeled as offline cache."
+	)
+	CommunityCatalog.set("_entries", original_catalog_entries)
+	lab.set("_notice", "")
+	var no_entries: Array[Dictionary] = []
+	lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_LOADING,
+		no_entries,
+		"",
+		""
+	)
+	_check(
+		lab.get_status_text() == "LOADING COMMUNITY LEVELS",
+		"The chooser exposes its loading state."
+	)
+	lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_EMPTY,
+		no_entries,
+		"2026-08-23T22:00:00Z",
+		""
+	)
+	_check(
+		lab.get_status_text() == "NO COMMUNITY LEVELS YET",
+		"The chooser exposes an empty catalog state."
+	)
+	lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_ERROR,
+		no_entries,
+		"",
+		"offline"
+	)
+	_check(
+		lab.get_status_text() == "COMMUNITY SERVICE OFFLINE",
+		"The chooser exposes an uncached offline error state."
+	)
+	lab.queue_free()
+	await get_tree().process_frame
+
+	GameSession.new_community_game(pending_level, 2468)
+	_check(
+		GameSession.is_community_run()
+		and not GameSession.can_submit_score()
+		and GameSession.run_id.is_empty(),
+		"Community sessions are explicit unranked runs without score ids."
+	)
+	_check(
+		not GameSession.restart_current_run()
+		and GameSession.is_community_run()
+		and GameSession.community_level.id == pending_level.id,
+		"Community sessions cannot restart directly from cached level data."
+	)
+	_check(
+		GameSession.capture_run_result("game_over").is_empty(),
+		"Community runs never capture leaderboard results."
+	)
+	var level: Level01 = LEVEL_SCENE.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	_check(
+		level.get_brick_count() == 8
+		and level.get_destructible_brick_count() == 8,
+		"Community dots become spaces at the existing brick spawn seam."
+	)
+	_check(
+		level.get_stage_name() == pending_level.level_name,
+		"Community runtime generation retains its level attribution."
+	)
+	level.queue_free()
+	await get_tree().process_frame
+	var community_hud := RetroHud.new()
+	get_tree().root.add_child(community_hud)
+	await get_tree().process_frame
+	_check(
+		community_hud.get_community_intro_time_left() > 5.0,
+		"Community attribution remains visible long enough to read."
+	)
+	community_hud.queue_free()
+	await get_tree().process_frame
+
+	var community_submission := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000003",
+		"run_kind": "community",
+		"community_id": pending_level.id,
+		"player_name": "@PLAYER_ONE",
+		"score": 100,
+		"outcome": "game_over",
+		"completed_stage": 1,
+		"start_stage": 1,
+	}
+	_check(
+		not Leaderboard.validate_submission(community_submission).is_empty(),
+		"Leaderboard validation rejects community submissions."
+	)
+
+	var main: Node = MAIN_SCENE.instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	GameSession.new_community_game(pending_level, 2468)
+	main.set("_community_retry_id", pending_level.id)
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community level is no longer available."
+	)
+	await get_tree().process_frame
+	var retry_screen: Node = main.get("_current_screen")
+	_check(
+		not GameSession.is_community_run()
+		and retry_screen is CommunityLab
+		and retry_screen.get_status_text()
+			== "COMMUNITY LEVEL IS NO LONGER AVAILABLE.",
+		"A hidden community retry clears stale gameplay and returns to the Lab."
+	)
+	GameSession.new_community_game(pending_level, 2468)
+	main.set("_community_retry_id", pending_level.id)
+	main.call("_show_main_menu")
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		true,
+		pending_level,
+		""
+	)
+	await get_tree().process_frame
+	_check(
+		main.get("_current_screen") is MainMenu
+		and String(main.get("_community_retry_id")).is_empty(),
+		"A retry response cannot reopen gameplay after navigation."
+	)
+	main.set("_deep_link_id", pending_level.id)
+	main.call("_show_high_scores")
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		true,
+		pending_level,
+		""
+	)
+	await get_tree().process_frame
+	_check(
+		main.get("_current_screen") is HighScoresScreen
+		and String(main.get("_deep_link_id")).is_empty(),
+		"A deep-link response cannot replace a newer navigation target."
+	)
+	main.queue_free()
+	await get_tree().process_frame
+	GameSession.new_game()
 
 
 func _test_name_entry_and_high_scores() -> void:
@@ -682,6 +1052,51 @@ func _test_touch_controls() -> void:
 	menu._gui_input(tap)
 	_check(tapped_stage[0] == 1, "Tapping Play activates the selected stage.")
 	menu.queue_free()
+	await get_tree().process_frame
+
+	var touch_lab: CommunityLab = COMMUNITY_LAB_SCENE.instantiate()
+	var touch_level := _community_level_fixture()
+	var touch_lab_entries: Array[Dictionary] = [touch_level]
+	var lab_back_requests := [0]
+	touch_lab.back_requested.connect(
+		func() -> void:
+			lab_back_requests[0] += 1
+	)
+	get_tree().root.add_child(touch_lab)
+	await get_tree().process_frame
+	touch_lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_READY,
+		touch_lab_entries,
+		"2026-08-24T00:00:00Z",
+		""
+	)
+	second_touch.position = Vector2(128, 70)
+	touch_lab._gui_input(second_touch)
+	_check(
+		String(touch_lab.get("_checking_id")).is_empty(),
+		"A secondary touch does not activate a Community Lab level."
+	)
+	tap.position = Vector2(128, 70)
+	touch_lab._gui_input(tap)
+	_check(
+		String(touch_lab.get("_checking_id")) == String(touch_level.id),
+		"A primary tap activates the selected Community Lab level."
+	)
+	tap.position = Vector2(128, 217)
+	touch_lab._gui_input(tap)
+	second_touch.position = tap.position
+	touch_lab._gui_input(second_touch)
+	_check(
+		lab_back_requests[0] == 1,
+		"A primary tap returns from Community Lab without a secondary duplicate."
+	)
+	var exact_request := CommunityCatalog.get("_exact_request") as HTTPRequest
+	if is_instance_valid(exact_request):
+		exact_request.cancel_request()
+	CommunityCatalog.set("_exact_in_flight", false)
+	CommunityCatalog.set("_requested_id", "")
+	touch_lab.queue_free()
 	await get_tree().process_frame
 
 	var touch_scores: HighScoresScreen = HIGH_SCORES_SCENE.instantiate()
@@ -2789,6 +3204,30 @@ func _find_power_up_brick(level: Level01, power_type: int) -> Brick:
 		if brick.power_up_type == power_type:
 			return brick
 	return null
+
+
+func _community_level_fixture() -> Dictionary:
+	return {
+		"id": "cl_0123456789abcdef01234567",
+		"schema_version": 1,
+		"level_name": "NEON TEST",
+		"creator_display_name": "@BUILDER",
+		"layout": [
+			"WWWWWWWW.....",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+		],
+		"status": "pending",
+		"populated_count": 8,
+		"created_at": "2026-08-23T22:00:00Z",
+	}
 
 
 func _check(condition: bool, message: String) -> void:

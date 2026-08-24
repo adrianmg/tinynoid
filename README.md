@@ -7,6 +7,8 @@ procedurally generated graphics and music.
 
 [▶ Play TINYNOID in your browser](https://adrianmg.github.io/tinynoid/)
 
+[🧱 Build a Community Lab level](https://adrianmg.github.io/tinynoid/editor/)
+
 | Platform | Download |
 | --- | --- |
 | Web | [tinynoid-web.zip](https://github.com/adrianmg/tinynoid/releases/latest/download/tinynoid-web.zip) |
@@ -44,6 +46,8 @@ main scene.
 - Protected random drops reward the opening and prevent long dry streaks
 - Global Top 100 scores with offline local history
 - Post-game X/Twitter handles and palette-pixelated profile avatars
+- Unranked Community Lab levels with creator attribution and moderation status
+- Mobile-friendly fixed-grid community level editor
 - Shareable Game Over and Campaign Clear score cards
 - Standard, multi-hit Silver, and indestructible Gold bricks
 - Pixel-perfect 256×240 rendering with integer scaling
@@ -56,7 +60,18 @@ Run the headless test suite:
 
 ```sh
 godot --headless --path godot res://tests/test_runner.tscn
+node --test web/tests/*.test.mjs
 ```
+
+Serve the static level editor locally:
+
+```sh
+python3 -m http.server 4173 --directory web
+```
+
+Then open <http://127.0.0.1:4173/editor/>. Community levels and their secure
+Supabase deployment contract are documented in
+[`docs/community-levels.md`](docs/community-levels.md).
 
 The legacy Unity project remains in the repository as migration history. The
 Godot game uses original layouts and generated presentation assets.

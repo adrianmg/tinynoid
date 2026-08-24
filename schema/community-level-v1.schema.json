@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://adrianmg.github.io/tinynoid/schema/community-level-v1.schema.json",
+  "title": "TINYNOID community level",
+  "description": "Immutable canonical payload accepted by the Community Lab.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "level_name",
+    "creator_display_name",
+    "layout"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "level_name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 32,
+      "pattern": "^[A-Z0-9 @._-]+$"
+    },
+    "creator_display_name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 24,
+      "pattern": "^[A-Z0-9 @._-]+$"
+    },
+    "layout": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "minLength": 13,
+        "maxLength": 13,
+        "pattern": "^[.WOCGRBPYSX]{13}$"
+      }
+    }
+  },
+  "x-tinynoid": {
+    "columns": 13,
+    "rows": 10,
+    "allowed_cell_codes": [
+      ".",
+      "W",
+      "O",
+      "C",
+      "G",
+      "R",
+      "B",
+      "P",
+      "Y",
+      "S",
+      "X"
+    ],
+    "minimum_destructible_cells": 8,
+    "maximum_populated_cells": 100,
+    "maximum_payload_bytes": 4096,
+    "canonical_text": "schema_version + LF + level_name + LF + creator_display_name + LF + layout rows joined by LF",
+    "content_hash": "lowercase SHA-256 hex of canonical_text encoded as UTF-8",
+    "public_id": "cl_ plus the first 24 content_hash characters"
+  }
+}

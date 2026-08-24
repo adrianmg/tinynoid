@@ -8,13 +8,18 @@ const GREEN := Color("#56d46f")
 
 func _ready() -> void:
 	var title := (
-		"CAMPAIGN CLEAR"
+		"LAB CLEAR"
+		if GameSession.is_community_run()
+		else "CAMPAIGN CLEAR"
 		if GameSession.level >= LevelCatalog.STAGE_COUNT
 		else "STAGE %02d CLEAR" % GameSession.level
 	)
 	var action_label := (
 		"MAIN MENU"
-		if GameSession.level >= LevelCatalog.STAGE_COUNT
+		if (
+			GameSession.is_community_run()
+			or GameSession.level >= LevelCatalog.STAGE_COUNT
+		)
 		else "CONTINUE"
 	)
 	var outcome := (
@@ -27,7 +32,8 @@ func _ready() -> void:
 		GREEN,
 		action_label,
 		outcome,
-		GameSession.level >= LevelCatalog.STAGE_COUNT
+		not GameSession.is_community_run()
+		and GameSession.level >= LevelCatalog.STAGE_COUNT
 	)
 	super._ready()
 
