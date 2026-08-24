@@ -11,6 +11,8 @@ const MAIN_MENU_SCENE: PackedScene = preload("res://scenes/main_menu.tscn")
 const GAMEPLAY_SCENE: PackedScene = preload("res://scenes/gameplay.tscn")
 const GAME_OVER_SCENE: PackedScene = preload("res://scenes/game_over.tscn")
 const STAGE_CLEAR_SCENE: PackedScene = preload("res://scenes/stage_clear.tscn")
+const NAME_ENTRY_SCENE: PackedScene = preload("res://scenes/name_entry.tscn")
+const HIGH_SCORES_SCENE: PackedScene = preload("res://scenes/high_scores.tscn")
 const BRICK_BREAK_EFFECT_SCENE: PackedScene = preload(
 	"res://scenes/effects/brick_break_effect.tscn"
 )
@@ -30,8 +32,11 @@ func _run() -> void:
 	await _test_audio_levels()
 	await _test_display_modes()
 	await _test_main_menu()
+	await _test_name_entry_and_high_scores()
 	await _test_campaign_routing()
 	await _test_game_session()
+	await _test_player_profile()
+	await _test_leaderboard_client()
 	await _test_level_catalog()
 	await _test_capsule_drop_director()
 	await _test_dynamic_power_up_flow()
@@ -336,17 +341,25 @@ func _test_main_menu() -> void:
 
 	var menu: MainMenu = MAIN_MENU_SCENE.instantiate()
 	var start_requested := [-1]
+	var edit_player_requested := [false]
+	var high_scores_requested := [false]
 	var quit_requested := [false]
 	menu.start_requested.connect(
 		func(stage_number: int) -> void:
 			start_requested[0] = stage_number
 	)
+	menu.edit_player_requested.connect(
+		func() -> void: edit_player_requested[0] = true
+	)
+	menu.high_scores_requested.connect(
+		func() -> void: high_scores_requested[0] = true
+	)
 	menu.quit_requested.connect(func() -> void: quit_requested[0] = true)
 	get_tree().root.add_child(menu)
 	await get_tree().process_frame
 	_check(
-		MainMenu.SUBTITLE == "A tiny tribute from Adrian Mato to Arkanoid",
-		"The menu carries the requested tribute subtitle."
+		MainMenu.SUBTITLE == "A TINY ARKANOID TRIBUTE BY @ADRIANMG",
+		"The menu carries the concise tribute subtitle."
 	)
 	_check(
 		MainMenu.INSTRUCTION_LINES == [
@@ -359,6 +372,43 @@ func _test_main_menu() -> void:
 	_check(PixelFont.GLYPHS.has("."), "The bitmap font supports the domain period.")
 	_check(PixelFont.GLYPHS.has("/"), "The bitmap font supports the instruction slash.")
 	_check(PixelFont.GLYPHS.has("&"), "The bitmap font supports the instruction ampersand.")
+	_check(PixelFont.GLYPHS.has("@"), "The bitmap font supports player handles.")
+	_check(PixelFont.GLYPHS.has("#"), "The bitmap font supports leaderboard ranks.")
+	_check(PixelFont.GLYPHS.has("_"), "The bitmap font supports handle underscores.")
+	menu.call(
+		"_on_latest_score_updated",
+		Leaderboard.STATE_READY,
+		{"player_name": "@ADRIANMG", "score": 1235},
+		"2026-08-23T21:50:00"
+	)
+	_check(
+		menu.get_recent_score_text()
+		== "@ADRIANMG HIT 1235 POINTS RECENTLY",
+		"The main menu highlights the most recent player and score."
+	)
+	menu.call(
+		"_on_latest_score_updated",
+		Leaderboard.STATE_READY,
+		{
+			"player_name": "@123456789012345",
+			"score": Leaderboard.MAX_SCORE,
+		},
+		"2026-08-23T21:50:00"
+	)
+	_check(
+		PixelFont.measure(menu.get_recent_score_text()).x <= 256,
+		"The longest recent-score message fits the logical canvas."
+	)
+	menu.call(
+		"_on_latest_score_updated",
+		Leaderboard.STATE_EMPTY,
+		{},
+		"2026-08-23T21:50:00"
+	)
+	_check(
+		menu.get_recent_score_text() == "NO RECENT SCORES YET",
+		"The main menu handles an empty leaderboard."
+	)
 
 	var fire_event := InputEventAction.new()
 	fire_event.action = "launch"
@@ -397,22 +447,32 @@ func _test_main_menu() -> void:
 	down_event.pressed = true
 	var move_count := UiAudio.get_move_count()
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 1, "Menu navigation selects Window mode.")
+	_check(menu.get_selected_index() == 1, "Menu navigation selects Player.")
 	_check(
 		UiAudio.get_move_count() == move_count + 1,
 		"Up/Down navigation plays the movement tick."
 	)
 
+	menu._unhandled_input(fire_event)
+	_check(edit_player_requested[0], "FIRE opens player identity.")
+
+	menu._unhandled_input(down_event)
+	_check(menu.get_selected_index() == 2, "Menu navigation selects High Scores.")
+	menu._unhandled_input(fire_event)
+	_check(high_scores_requested[0], "FIRE opens the global leaderboard.")
+
+	menu._unhandled_input(down_event)
+	_check(menu.get_selected_index() == 3, "Menu navigation selects Window mode.")
 	DisplayController.set_window_scale(2)
 	menu._unhandled_input(right_event)
 	_check(DisplayController.get_mode_label() == "3X", "Menu arrows change window mode.")
 	_check(
-		UiAudio.get_move_count() == move_count + 2,
+		UiAudio.get_move_count() >= move_count + 4,
 		"Left/Right interaction plays the movement tick."
 	)
 
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 2, "Menu navigation selects Sound.")
+	_check(menu.get_selected_index() == 4, "Menu navigation selects Sound.")
 	menu._unhandled_input(fire_event)
 	_check(menu.get_sound_level() == 2, "FIRE lowers Sound from III to II.")
 	menu._unhandled_input(fire_event)
@@ -468,7 +528,89 @@ func _test_main_menu() -> void:
 	)
 	_check(MusicController.get_current_track_id() == 0, "Escape restores menu music.")
 
+	application_menu = main.find_child(
+		"MainMenu",
+		true,
+		false
+	) as MainMenu
+	application_menu._unhandled_input(down_event)
+	application_menu._unhandled_input(down_event)
+	application_menu._unhandled_input(fire_event)
+	await get_tree().process_frame
+	_check(
+		main.find_child("HighScores", true, false) != null,
+		"The main menu opens the Top 100 screen."
+	)
+	var application_scores := main.find_child(
+		"HighScores",
+		true,
+		false
+	) as HighScoresScreen
+	application_scores._unhandled_input(cancel_event)
+	await get_tree().process_frame
+	_check(
+		main.find_child("MainMenu", true, false) != null,
+		"Escape returns from High Scores to the main menu."
+	)
+
+	main.call("_show_name_entry")
+	await get_tree().process_frame
+	_check(
+		main.find_child("NameEntry", true, false) != null,
+		"The Player option opens the name-entry screen."
+	)
+	main.call("_show_main_menu")
+	await get_tree().process_frame
+
 	main.queue_free()
+	await get_tree().process_frame
+
+
+func _test_name_entry_and_high_scores() -> void:
+	var name_entry: NameEntryScreen = NAME_ENTRY_SCENE.instantiate()
+	name_entry.configure("@PLAYER", 1235, true)
+	get_tree().root.add_child(name_entry)
+	await get_tree().process_frame
+	name_entry.call("_append_character", "1")
+	_check(
+		name_entry.get_player_name() == "@PLAYER1",
+		"The name-entry screen supports controller-style character entry."
+	)
+	name_entry.call("_delete_character")
+	_check(
+		name_entry.get_player_name() == "@PLAYER",
+		"The name-entry screen supports deletion."
+	)
+	name_entry.queue_free()
+	await get_tree().process_frame
+
+	var entries: Array[Dictionary] = []
+	for entry_index in range(20):
+		entries.append({
+			"rank": entry_index + 1,
+			"player_name": "PLAYER%d" % entry_index,
+			"score": 20000 - entry_index,
+			"completed_stage": 3,
+		})
+	var high_scores: HighScoresScreen = HIGH_SCORES_SCENE.instantiate()
+	get_tree().root.add_child(high_scores)
+	await get_tree().process_frame
+	high_scores.call(
+		"_on_top_scores_updated",
+		Leaderboard.STATE_READY,
+		entries,
+		"2026-08-23T22:00:00"
+	)
+	high_scores.call("_select_relative", 15)
+	_check(
+		high_scores.get_selected_index() == 15,
+		"Leaderboard selection moves through the Top 100."
+	)
+	_check(
+		high_scores.get_scroll_offset() == 2,
+		"Leaderboard scroll follows selection beyond the visible rows."
+	)
+	high_scores.queue_free()
 	await get_tree().process_frame
 
 
@@ -533,6 +675,16 @@ func _test_game_session() -> void:
 	_check(session.level == 17, "A new game can start from a selected stage.")
 	var selected_stage_seed := session.run_seed
 	session.mark_starter_capsule_spawned()
+	_check(
+		not session.can_submit_score(),
+		"Runs started after Stage 1 are not globally eligible."
+	)
+	var local_only_result := session.capture_run_result("game_over")
+	_check(
+		not local_only_result.is_empty()
+		and not local_only_result.eligible,
+		"Later-stage runs still produce a local result."
+	)
 	session.advance_level()
 	_check(session.level == 18, "Campaign progression advances one stage.")
 	_check(session.run_seed == selected_stage_seed, "Campaign progression keeps the run seed.")
@@ -558,9 +710,128 @@ func _test_game_session() -> void:
 		session.register_ball_lost() == GameSessionState.BallLossOutcome.GAME_OVER,
 		"The third lost ball ends the game."
 	)
+	var run_id := session.run_id
+	var submission := session.capture_run_result("game_over")
+	_check(
+		not submission.is_empty()
+		and submission.run_id == run_id
+		and submission.start_stage == 1,
+		"Stage 1 runs capture one terminal leaderboard submission."
+	)
+	_check(
+		session.capture_run_result("game_over").is_empty(),
+		"A run cannot be captured twice."
+	)
+	_check(
+		run_id.length() == 36
+		and run_id.substr(14, 1) == "4",
+		"Leaderboard run IDs are random UUIDv4 values."
+	)
 
 	session.queue_free()
 	await get_tree().process_frame
+
+
+func _test_leaderboard_client() -> void:
+	_check(
+		Leaderboard.MAX_SCORE == 999999,
+		"The leaderboard rejects scores that cannot fit the HUD."
+	)
+	var valid_submission := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000002",
+		"player_name": "@PLAYER_ONE",
+		"score": 12345,
+		"outcome": "game_over",
+		"completed_stage": 7,
+		"start_stage": 1,
+	}
+	_check(
+		Leaderboard.validate_submission(valid_submission).is_empty(),
+		"Valid leaderboard submissions pass client validation."
+	)
+
+	var invalid_run_id := valid_submission.duplicate()
+	invalid_run_id.run_id = "not-a-uuid"
+	_check(
+		not Leaderboard.validate_submission(invalid_run_id).is_empty(),
+		"Leaderboard submissions require an idempotent UUID."
+	)
+
+	var invalid_name := valid_submission.duplicate()
+	invalid_name.player_name = "NO!"
+	_check(
+		not Leaderboard.validate_submission(invalid_name).is_empty(),
+		"Leaderboard names are restricted to the pixel-font character set."
+	)
+
+	var impossible_score := valid_submission.duplicate()
+	impossible_score.score = Leaderboard.MAX_SCORE + 1
+	_check(
+		not Leaderboard.validate_submission(impossible_score).is_empty(),
+		"Impossible leaderboard scores are rejected before networking."
+	)
+	var invalid_clear := valid_submission.duplicate()
+	invalid_clear.outcome = "campaign_clear"
+	_check(
+		not Leaderboard.validate_submission(invalid_clear).is_empty(),
+		"Campaign-clear submissions require Stage 33."
+	)
+
+	var serialized_state := JSON.stringify({
+		"pending_submissions": [valid_submission],
+	})
+	var restored_state: Variant = JSON.parse_string(serialized_state)
+	var restored_client := LeaderboardClient.new()
+	restored_client.call("_restore_state", restored_state)
+	_check(
+		restored_client.pending_submission_count() == 1,
+		"Offline submissions survive a JSON save-and-reload cycle."
+	)
+	restored_client.call("_remember_local_score", {
+		"run_id": valid_submission.run_id,
+		"player_name": "@PLAYER_ONE",
+		"score": 12345,
+		"outcome": "game_over",
+		"completed_stage": 7,
+		"start_stage": 1,
+		"submitted_at": "2026-08-23T22:00:00Z",
+		"local": true,
+	})
+	_check(
+		restored_client.cached_local_scores().size() == 1,
+		"Local results remain available when the global board is offline."
+	)
+	_check(
+		restored_client.call("_is_permanent_submission_failure", 400),
+		"Invalid submissions are removed instead of blocking the queue."
+	)
+	_check(
+		not restored_client.call("_is_permanent_submission_failure", 429),
+		"Rate-limited submissions remain queued for retry."
+	)
+	restored_client.free()
+
+
+func _test_player_profile() -> void:
+	_check(
+		PlayerProfileState.normalize_name("  @adrian_mg  ")
+		== "@ADRIAN_MG",
+		"Player names are normalized for storage and display."
+	)
+	_check(
+		PlayerProfileState.get_name_error("@ADRIAN_MG").is_empty(),
+		"Handles are valid player names."
+	)
+	_check(
+		not PlayerProfileState.get_name_error("NO!").is_empty(),
+		"Unsupported player-name glyphs are rejected."
+	)
+	_check(
+		ScoreShare._x_intent_url("PLAYER scored 10 points").begins_with(
+			"https://x.com/intent/post?"
+		),
+		"Score sharing has an X intent fallback."
+	)
 
 
 func _test_level_catalog() -> void:
@@ -1265,20 +1536,54 @@ func _test_result_screens() -> void:
 	var fire_event := InputEventAction.new()
 	fire_event.action = "launch"
 	fire_event.pressed = true
+	var down_event := InputEventAction.new()
+	down_event.action = "ui_down"
+	down_event.pressed = true
+	var up_event := InputEventAction.new()
+	up_event.action = "ui_up"
+	up_event.pressed = true
 
 	var game_over: GameOverScreen = GAME_OVER_SCENE.instantiate()
 	var retry_requested := [false]
 	game_over.new_game_requested.connect(func() -> void: retry_requested[0] = true)
 	get_tree().root.add_child(game_over)
+	game_over._unhandled_input(down_event)
+	_check(
+		game_over.get_selected_index() == 1,
+		"Game Over exposes Share Score as a second action."
+	)
+	game_over._unhandled_input(up_event)
 	game_over._unhandled_input(fire_event)
 	_check(retry_requested[0], "FIRE retries from Game Over.")
 	game_over.queue_free()
 	await get_tree().process_frame
 
+	GameSession.new_game(2)
+	var intermediate_clear: StageClearScreen = STAGE_CLEAR_SCENE.instantiate()
+	get_tree().root.add_child(intermediate_clear)
+	await get_tree().process_frame
+	_check(
+		intermediate_clear.call("_option_count") == 1,
+		"Intermediate stage clear does not offer terminal score sharing."
+	)
+	_check(
+		intermediate_clear.get("_score_status").is_empty(),
+		"Intermediate stage clear does not claim the score was persisted."
+	)
+	intermediate_clear.queue_free()
+	await get_tree().process_frame
+
 	var stage_clear: StageClearScreen = STAGE_CLEAR_SCENE.instantiate()
 	var replay_requested := [false]
+	GameSession.new_game(LevelCatalog.STAGE_COUNT)
 	stage_clear.replay_requested.connect(func() -> void: replay_requested[0] = true)
 	get_tree().root.add_child(stage_clear)
+	stage_clear._unhandled_input(down_event)
+	_check(
+		stage_clear.get_selected_index() == 1,
+		"Stage Clear exposes Share Score as a second action."
+	)
+	stage_clear._unhandled_input(up_event)
 	stage_clear._unhandled_input(fire_event)
 	_check(replay_requested[0], "FIRE replays from Stage Clear.")
 	stage_clear.queue_free()
@@ -1893,6 +2198,14 @@ func _get_destructible_layout_count(stage_number: int) -> int:
 			if character != " " and character != "X":
 				count += 1
 	return count
+
+
+func _find_power_up_brick(level: Level01, power_type: int) -> Brick:
+	for child in level.bricks.get_children():
+		var brick := child as Brick
+		if brick.power_up_type == power_type:
+			return brick
+	return null
 
 
 func _check(condition: bool, message: String) -> void:

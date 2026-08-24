@@ -15,7 +15,9 @@ boot_splash/show_image=false
 
 AudioSettings="*res://scripts/audio_settings.gd"
 DisplayController="*res://scripts/display_controller.gd"
+PlayerProfile="*res://scripts/player_profile.gd"
 GameSession="*res://scripts/game_session.gd"
+Leaderboard="*res://scripts/leaderboard.gd"
 MusicController="*res://scripts/music_controller.gd"
 UiAudio="*res://scripts/ui_audio.gd"
 

@@ -16,8 +16,8 @@ few seconds using mouse, keyboard, or controller.
 
 ## Content and constraints
 
-- Play, Window mode, and four Sound levels (`III`, `II`, `I`, `OFF`) are the
-  only menu options.
+- Play, Player, High Scores, Window mode, and four Sound levels (`III`, `II`,
+  `I`, `OFF`) are the menu options.
 - Left/Right changes the selected starting stage from 1 through 33.
 - F2 selects 2x, F3 selects 3x, and F11 or Alt+Enter toggles fullscreen.
 - Escape returns here from gameplay and quits when this menu is already active.
@@ -27,6 +27,9 @@ few seconds using mouse, keyboard, or controller.
 - The menu theme is a mysterious, dreamy 88 BPM space overture with sparse
   melody, fifth shimmer, and alternating-bar percussion.
 - The subtitle reads `A TINY TRIBUTE FROM ADRIAN MATO TO ARKANOID`.
+- The subtitle reads `A TINY ARKANOID TRIBUTE BY @ADRIANMG`.
+- A live line below the option panel shows the latest global player and score,
+  with clear loading, empty, and offline states.
 - The bottom contains only `ARROW KEYS TO MOVE & SELECT`,
   `ENTER / SPACEBAR TO SELECT`, and Escape instructions.
 
@@ -38,4 +41,4 @@ display shortcuts remain printed below the panel.
 
 ## Unresolved decisions
 
-Additional settings and remapping controls are outside this prototype.
+Additional settings and remapping controls remain outside this prototype.

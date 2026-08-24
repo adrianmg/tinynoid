@@ -19,6 +19,7 @@ var _power_up_time_left := 0.0
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	GameSession.state_changed.connect(_on_state_changed)
+	PlayerProfile.name_changed.connect(_on_player_name_changed)
 	_on_state_changed(GameSession.score, GameSession.balls_remaining, GameSession.level)
 
 
@@ -33,6 +34,12 @@ func _draw() -> void:
 
 	PixelFont.draw_text(self, "BALL", Vector2(196, 3), WHITE)
 	PixelFont.draw_text(self, "%02d" % _balls, Vector2(204, 11), YELLOW)
+	if PlayerProfile.has_player_name():
+		PixelAvatar.draw(
+			self,
+			PlayerProfile.player_name,
+			Vector2(184, 9)
+		)
 
 	if _launch_ready:
 		PixelFont.draw_centered(self, LAUNCH_PROMPT, 231, CYAN)
@@ -58,6 +65,10 @@ func _on_state_changed(score: int, balls_remaining: int, stage: int) -> void:
 	_score = score
 	_balls = balls_remaining
 	_stage = stage
+	queue_redraw()
+
+
+func _on_player_name_changed(_player_name: String) -> void:
 	queue_redraw()
 
 

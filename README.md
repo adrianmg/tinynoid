@@ -30,6 +30,7 @@ main scene.
 
 - **Move:** Arrow keys, A/D, mouse, or controller stick
 - **Launch / Select:** Spacebar, Enter, mouse button, or controller face button
+- **Menus / High Scores:** Arrow keys, mouse, or controller
 - **Restart stage:** R
 - **Return to menu:** Escape
 - **Window size:** F2 for 2×, F3 for 3×
@@ -40,6 +41,9 @@ main scene.
 - 33 original stages
 - Eight capsules: Expand, Slow, Disruption, Catch, Laser, Break, Player, and Thru
 - Protected random drops reward the opening and prevent long dry streaks
+- Global Top 100 scores with offline local history
+- Persistent player names and generated pixel avatars
+- Shareable Game Over and Campaign Clear score cards
 - Standard, multi-hit Silver, and indestructible Gold bricks
 - Pixel-perfect 256×240 rendering with integer scaling
 - Distinct procedurally generated music for the menu and every stage
