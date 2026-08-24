@@ -14,20 +14,20 @@ class DropSnapshot:
 
 	var remaining_bricks: int
 	var falling_capsules: int
-	var active_power_up: int
+	var active_power_up_mask: int
 	var balls_remaining: int
 	var active_ball_count: int
 
 	func _init(
 		remaining_bricks_value: int,
 		falling_capsules_value: int,
-		active_power_up_value: int,
+		active_power_up_mask_value: int,
 		balls_remaining_value: int,
 		active_ball_count_value: int
 	) -> void:
 		remaining_bricks = remaining_bricks_value
 		falling_capsules = falling_capsules_value
-		active_power_up = active_power_up_value
+		active_power_up_mask = active_power_up_mask_value
 		balls_remaining = balls_remaining_value
 		active_ball_count = active_ball_count_value
 
@@ -86,6 +86,8 @@ func on_brick_destroyed(snapshot: DropSnapshot) -> int:
 		return NO_DROP
 
 	var power_type := _select_power_type(snapshot)
+	if power_type == NO_DROP:
+		return NO_DROP
 	_drops_spawned += 1
 	_eligible_breaks_since_spawn = 0
 	_last_spawned_type = power_type
@@ -108,7 +110,7 @@ func _get_drop_chance() -> float:
 			6:
 				return 1.0
 			_:
-				return 0.0
+				return 1.0 if _eligible_breaks_since_spawn > 6 else 0.0
 
 	match _eligible_breaks_since_spawn:
 		3, 4, 5:
@@ -124,16 +126,20 @@ func _get_drop_chance() -> float:
 		10:
 			return 1.0
 
-	return 0.0
+	return 1.0 if _eligible_breaks_since_spawn > 10 else 0.0
 
 
 func _select_power_type(snapshot: DropSnapshot) -> int:
 	if _starter_pool_pending:
-		return _weighted_choice({
+		var starter_weights: Dictionary[int, float] = {
 			PowerUp.PowerType.WIDE: 45.0,
 			PowerUp.PowerType.SLOW: 35.0,
 			PowerUp.PowerType.MULTI: 20.0,
-		})
+		}
+		for power_type in starter_weights:
+			if snapshot.active_power_up_mask & (1 << power_type):
+				starter_weights[power_type] = 0.0
+		return _weighted_choice(starter_weights)
 
 	var weights: Dictionary[int, float] = {
 		PowerUp.PowerType.WIDE: 22.0,
@@ -147,8 +153,9 @@ func _select_power_type(snapshot: DropSnapshot) -> int:
 	}
 	if _last_spawned_type >= 0:
 		weights[_last_spawned_type] = 0.0
-	if snapshot.active_power_up >= 0:
-		weights[snapshot.active_power_up] = 0.0
+	for power_type in weights:
+		if snapshot.active_power_up_mask & (1 << power_type):
+			weights[power_type] = 0.0
 
 	if snapshot.balls_remaining <= 1:
 		weights[PowerUp.PowerType.EXTRA_BALL] *= 1.5
@@ -175,7 +182,8 @@ func _weighted_choice(weights: Dictionary[int, float]) -> int:
 	var total_weight := 0.0
 	for power_type in weights:
 		total_weight += weights[power_type]
-	assert(total_weight > 0.0, "At least one capsule type must remain selectable.")
+	if total_weight <= 0.0:
+		return NO_DROP
 
 	var roll := _type_rng.randf() * total_weight
 	var fallback := NO_DROP

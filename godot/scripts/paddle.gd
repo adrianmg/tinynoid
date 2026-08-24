@@ -19,12 +19,12 @@ var horizontal_velocity := 0.0
 var paddle_width := STANDARD_WIDTH
 var catch_enabled := false
 var laser_enabled := false
-var _mouse_target_x := PLAYFIELD_CENTER_X
-var _mouse_moved := false
+var _pointer_target_x := PLAYFIELD_CENTER_X
+var _pointer_moved := false
 
 
 func _ready() -> void:
-	_mouse_target_x = global_position.x
+	_pointer_target_x = global_position.x
 	queue_redraw()
 
 
@@ -55,10 +55,10 @@ func _draw() -> void:
 		draw_rect(Rect2(half_width - 4, -5, 4, 2), Color("#f15b68"))
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion:
-		_mouse_target_x = get_global_mouse_position().x
-		_mouse_moved = true
+func _input(event: InputEvent) -> void:
+	if GamePointer.has_primary_position(event):
+		_pointer_target_x = GamePointer.get_position(event).x
+		_pointer_moved = true
 
 
 func _physics_process(delta: float) -> void:
@@ -68,15 +68,15 @@ func _physics_process(delta: float) -> void:
 	var previous_x := global_position.x
 
 	if not is_zero_approx(input_axis):
-		_mouse_moved = false
+		_pointer_moved = false
 		global_position.x = clampf(
 			global_position.x + input_axis * speed * delta,
 			left_boundary,
 			right_boundary
 		)
-	elif _mouse_moved:
-		global_position.x = clampf(_mouse_target_x, left_boundary, right_boundary)
-		_mouse_moved = false
+	elif _pointer_moved:
+		global_position.x = clampf(_pointer_target_x, left_boundary, right_boundary)
+		_pointer_moved = false
 
 	horizontal_velocity = (global_position.x - previous_x) / delta
 	velocity = Vector2(horizontal_velocity, 0.0)
@@ -123,13 +123,11 @@ func apply_wide() -> void:
 
 func enable_catch() -> void:
 	catch_enabled = true
-	laser_enabled = false
 	queue_redraw()
 
 
 func enable_laser() -> void:
 	laser_enabled = true
-	catch_enabled = false
 	queue_redraw()
 
 
@@ -149,8 +147,8 @@ func reset_for_serve() -> void:
 	global_position.x = PLAYFIELD_CENTER_X
 	horizontal_velocity = 0.0
 	velocity = Vector2.ZERO
-	_mouse_target_x = PLAYFIELD_CENTER_X
-	_mouse_moved = false
+	_pointer_target_x = PLAYFIELD_CENTER_X
+	_pointer_moved = false
 
 
 func _set_width(width: float) -> void:

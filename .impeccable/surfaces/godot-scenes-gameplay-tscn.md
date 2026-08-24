@@ -13,7 +13,7 @@ related_targets: ["godot/scenes/game_over.tscn","godot/scenes/stage_clear.tscn"]
 
 A developer or playtester should understand the state instantly, launch without
 setup, clear the original rainbow-gate formation, and replay with the same FIRE
-action on keyboard, mouse, or controller.
+action on touch, keyboard, mouse, or controller.
 
 ## Content and constraints
 
@@ -31,10 +31,13 @@ action on keyboard, mouse, or controller.
   repetition.
 - Surviving Silver contacts flash white and use a sharper high-pitch waveform.
 - Gold contacts use a low double-clunk to communicate indestructibility.
-- Expand, Slow, Disruption, Catch, Laser, and Thru are mutually exclusive until
-  replacement, life loss, or stage clear; Break and Player are immediate.
+- Expand, Slow, Disruption, Catch, Laser, and Thru stack until life loss or stage
+  clear; Break and Player are immediate.
 - Life loss re-serves in place, preserving destroyed bricks, Silver damage, and
   score while resetting temporary effects and falling chips.
+- Stage progression preserves score and remaining lives.
+- Primary touch positions and drags the paddle; tap launches, fires Laser, and
+  advances result screens without hiding keyboard, mouse, or controller input.
 - Distinct deterministic pulse/arpeggio/bass/noise arrangements are generated
   for all 33 stages, persist across life loss, and are controlled by Sound.
 - No ROM data, extracted assets, or copied level layouts.
