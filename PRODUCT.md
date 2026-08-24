@@ -26,7 +26,8 @@ extracted assets, copied level data, or production branding from another game.
 ## Operating Context
 
 The prototype is run locally from the Godot editor, as a desktop process, or as
-a Web export. Playtesting uses mouse, keyboard, or a standard game controller.
+a Web export. Playtesting uses touch, mouse, keyboard, or a standard game
+controller.
 
 ## Capabilities and Constraints
 
@@ -35,10 +36,15 @@ a Web export. Playtesting uses mouse, keyboard, or a standard game controller.
 - Main menu with Play, window scale/fullscreen, and four persistent sound levels.
 - 33 original stages, selectable starts, progression, score, stage-clear,
   game-over, and replay.
-- Seven falling capsule mechanics: Expand, Slow, Disruption, Catch, Laser,
-  Break, and Player.
-- Expand, Slow, Disruption, Catch, and Laser are mutually exclusive and reset
-  on life loss or stage clear; Break and Player are immediate.
+- Eight falling capsule mechanics: Expand, Slow, Disruption, Catch, Laser,
+  Break, Player, and Thru.
+- Seeded capsule luck guarantees the first stage reward within 3-6 eligible
+  brick breaks, prevents later dry streaks beyond ten, and scales each stage to
+  a 2-8 drop budget based on its destructible brick count.
+- Expand, Slow, Disruption, Catch, Laser, and Thru stack together and reset as a
+  group on life loss or stage clear; Break and Player are immediate.
+- Score and remaining lives persist unchanged when the campaign advances to the
+  next stage.
 - Brick destruction and Silver damage persist when a life is lost.
 - Continuous position-based paddle bounce with bounded motion influence.
 - Eight one-hit score colors, stage-scaled Silver, and indestructible Gold.
@@ -56,7 +62,7 @@ a Web export. Playtesting uses mouse, keyboard, or a standard game controller.
 ## Brand Commitments
 
 The game and project are named **TINYNOID**, subtitled
-**A tiny tribute from me to the original game**.
+**A tiny tribute from Adrian Mato to Arkanoid**.
 The experience should remain immediate, arcade-readable, and playful rather
 than becoming a simulation or content-heavy campaign.
 
@@ -76,6 +82,7 @@ claims, user testimonials, or approved ROM-derived materials.
 
 ## Accessibility & Inclusion
 
-Core actions must remain available through keyboard, mouse, and controller.
+Core actions must remain available through touch, keyboard, mouse, and
+controller.
 Gameplay information uses high-contrast color plus stable spatial placement;
 rapid full-screen flashes are avoided.
