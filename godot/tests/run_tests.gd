@@ -840,9 +840,17 @@ func _test_player_profile() -> void:
 		"X handles display with an implicit at sign."
 	)
 	_check(
-		PixelAvatar._identity_hash("ADRIAN_MG")
-		== PixelAvatar._identity_hash("@ADRIAN_MG"),
-		"Avatar identity ignores the display-only at sign."
+		AvatarCacheState.avatar_url("@ADRIAN_MG")
+		== "https://unavatar.io/x/ADRIAN_MG?fallback=false",
+		"Real avatar lookup uses the canonical bare X handle."
+	)
+	var source_avatar := Image.create(16, 12, false, Image.FORMAT_RGBA8)
+	source_avatar.fill(Color("#ed734c"))
+	var pixelated_avatar := AvatarCacheState.pixelate(source_avatar)
+	_check(
+		pixelated_avatar.get_width() == AvatarCacheState.AVATAR_SIZE
+		and pixelated_avatar.get_height() == AvatarCacheState.AVATAR_SIZE,
+		"Resolved avatars are center-cropped into an 8x8 pixel texture."
 	)
 	_check(
 		not PlayerProfileState.get_name_error("NO-DASH").is_empty(),

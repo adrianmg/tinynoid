@@ -36,6 +36,7 @@ func configure_result(
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	AvatarCache.avatar_updated.connect(_on_avatar_updated)
 	if share_enabled:
 		Leaderboard.score_submitted.connect(_on_score_submitted)
 		Leaderboard.submission_failed.connect(_on_submission_failed)
@@ -200,6 +201,11 @@ func _on_submission_failed(run_id: String, _message: String) -> void:
 		if Leaderboard.has_pending_submission(run_id)
 		else "SAVED ON THIS DEVICE"
 	)
+	queue_redraw()
+	call_deferred("_prepare_share_image")
+
+
+func _on_avatar_updated(_handle: String) -> void:
 	queue_redraw()
 	call_deferred("_prepare_share_image")
 

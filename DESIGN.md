@@ -237,8 +237,9 @@ octave lift.
 The first terminal score asks for an X/Twitter handle through a physical
 keyboard or a visible cartridge-style glyph grid. The `@` prefix is shown and
 stored implicitly, while entry is limited to X-compatible `A-Z`, `0-9`, and
-`_`. Players may skip and remain guests. Named players receive a deterministic,
-palette-constrained pixel avatar; no external photograph is required.
+`_`. Players may skip and remain guests. Named players receive their public X
+profile image, center-cropped to 8x8 and reduced to the TINYNOID palette; a
+neutral placeholder remains visible while lookup is unavailable.
 
 The leaderboard shows fourteen of the global Top 100 rows at once. Up and Down
 move one row, Left and Right move by a page, and the mouse wheel scrolls. The

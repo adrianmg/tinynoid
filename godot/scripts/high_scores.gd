@@ -14,6 +14,7 @@ const VISIBLE_ROWS := 14
 const ROW_Y := 57
 const ROW_HEIGHT := 10
 const BACK_RECT := Rect2(207, 8, 30, 13)
+const ATTRIBUTION_RECT := Rect2(76, 216, 104, 10)
 
 var _entries: Array[Dictionary] = []
 var _state := Leaderboard.STATE_LOADING
@@ -23,6 +24,7 @@ var _scroll_offset := 0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	AvatarCache.avatar_updated.connect(_on_avatar_updated)
 	Leaderboard.top_scores_updated.connect(_on_top_scores_updated)
 	_entries = Leaderboard.cached_top_scores()
 	if not _entries.is_empty():
@@ -60,7 +62,8 @@ func _draw() -> void:
 			)
 
 	PixelFont.draw_centered(self, _range_text(), 211, _state_color())
-	PixelFont.draw_centered(self, "ARROWS SCROLL  FIRE REFRESH  ESC BACK", 228, WHITE)
+	PixelFont.draw_centered(self, "AVATARS BY UNAVATAR", 220, CYAN)
+	PixelFont.draw_centered(self, "ARROWS SCROLL  FIRE REFRESH  ESC BACK", 232, WHITE)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -100,6 +103,12 @@ func _gui_input(event: InputEvent) -> void:
 		):
 			accept_event()
 			back_requested.emit()
+		elif (
+			event.button_index == MOUSE_BUTTON_LEFT
+			and ATTRIBUTION_RECT.has_point(event.position)
+		):
+			accept_event()
+			OS.shell_open("https://unavatar.io")
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_select_relative(-1)
 			accept_event()
@@ -245,4 +254,8 @@ func _on_top_scores_updated(
 		maxi(0, _entries.size() - 1)
 	)
 	_ensure_selected_visible()
+	queue_redraw()
+
+
+func _on_avatar_updated(_handle: String) -> void:
 	queue_redraw()

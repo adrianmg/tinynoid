@@ -42,7 +42,7 @@ main scene.
 - Eight capsules: Expand, Slow, Disruption, Catch, Laser, Break, Player, and Thru
 - Protected random drops reward the opening and prevent long dry streaks
 - Global Top 100 scores with offline local history
-- Post-game X/Twitter handles and generated pixel avatars
+- Post-game X/Twitter handles and palette-pixelated profile avatars
 - Shareable Game Over and Campaign Clear score cards
 - Standard, multi-hit Silver, and indestructible Gold bricks
 - Pixel-perfect 256×240 rendering with integer scaling
@@ -59,3 +59,7 @@ godot --headless --path godot res://tests/test_runner.tscn
 
 The legacy Unity project remains in the repository as migration history. The
 Godot game uses original layouts and generated presentation assets.
+
+## Credits
+
+[X/Twitter avatars provided by Unavatar](https://unavatar.io).

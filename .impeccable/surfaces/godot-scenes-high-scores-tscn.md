@@ -24,7 +24,8 @@ leaving the controller-first game flow.
   stored implicitly rather than entered as a character.
 - Handles use X-compatible `A-Z`, `0-9`, and `_`, with a visible glyph picker.
 - Loading, empty, cached-offline, local-only, and error states remain explicit.
-- Avatars are deterministic palette pixels, never remote photography.
+- Public X profile images are fetched on demand, center-cropped to 8x8, and
+  reduced to the TINYNOID palette; lookup failures keep a neutral placeholder.
 - Terminal results expose separate `SHARE ON TWITTER` and `SHARE` actions.
   Generic sharing prefers a generated PNG through the platform share sheet.
 

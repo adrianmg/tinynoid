@@ -14,6 +14,7 @@ boot_splash/show_image=false
 [autoload]
 
 AudioSettings="*res://scripts/audio_settings.gd"
+AvatarCache="*res://scripts/avatar_cache.gd"
 DisplayController="*res://scripts/display_controller.gd"
 PlayerProfile="*res://scripts/player_profile.gd"
 GameSession="*res://scripts/game_session.gd"

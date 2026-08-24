@@ -18,6 +18,7 @@ var _power_up_time_left := 0.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	AvatarCache.avatar_updated.connect(_on_avatar_updated)
 	GameSession.state_changed.connect(_on_state_changed)
 	PlayerProfile.name_changed.connect(_on_player_name_changed)
 	_on_state_changed(GameSession.score, GameSession.balls_remaining, GameSession.level)
@@ -69,6 +70,10 @@ func _on_state_changed(score: int, balls_remaining: int, stage: int) -> void:
 
 
 func _on_player_name_changed(_player_name: String) -> void:
+	queue_redraw()
+
+
+func _on_avatar_updated(_handle: String) -> void:
 	queue_redraw()
 
 
