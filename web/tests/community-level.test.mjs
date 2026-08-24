@@ -8,6 +8,7 @@ import {
   emptyLayout,
   isCommunityLevelId,
   normalizeName,
+  resolvePaintCode,
   validateLevel,
 } from "../editor/community-level.js";
 
@@ -106,4 +107,12 @@ test("recognizes only canonical public ids", () => {
   assert.equal(isCommunityLevelId("cl_6c4e88e29b91f4d2f386647f"), true);
   assert.equal(isCommunityLevelId("CL_6c4e88e29b91f4d2f386647f"), false);
   assert.equal(isCommunityLevelId("cl_short"), false);
+});
+
+test("resolves selected, cycling, and erase paint tools", () => {
+  assert.equal(resolvePaintCode("R", ".", false), "R");
+  assert.equal(resolvePaintCode("cycle", "R", false), "B");
+  assert.equal(resolvePaintCode("cycle", "X", false), ".");
+  assert.equal(resolvePaintCode("Y", "R", true), ".");
+  assert.equal(resolvePaintCode("invalid", "G", false), "G");
 });

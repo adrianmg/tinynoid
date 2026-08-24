@@ -28,7 +28,7 @@
         </a>
         <div class="lab-status">
           <span class="status-light" aria-hidden="true"></span>
-          <span>SUBMISSIONS ENTER THE UNRANKED LAB AS UNREVIEWED</span>
+          <span>UNRANKED · UNREVIEWED</span>
         </div>
       </header>
 
@@ -37,7 +37,7 @@
           <div class="panel-heading">
             <div>
               <h1 id="editor-title">BUILD A PHASE</h1>
-              <p>Tap, click, or press Space to cycle each brick.</p>
+              <p>Pick a brick. Click + drag to paint. Shift + click erases.</p>
             </div>
             <output id="block-count" class="block-count" aria-live="polite">
               0 BRICKS
@@ -62,24 +62,26 @@
             </div>
           </div>
           <p id="grid-help" class="sr-only">
-            Use arrow keys to move between cells. Press Space or Enter to cycle
-            the selected cell through empty and each supported brick type.
+            Choose a paint tool, then click and drag across cells. Hold Shift
+            while clicking or dragging to erase. Use arrow keys to move between
+            cells, then Space or Enter to use the selected tool.
           </p>
 
-          <div class="palette-strip" aria-label="Brick cycle order">
-            <span class="palette-label">BRICK CYCLE</span>
-            <div id="palette" class="palette"></div>
+          <div class="palette-strip">
+            <span class="palette-label">PAINT</span>
+            <div
+              id="palette"
+              class="palette"
+              role="group"
+              aria-label="Brick paint tools"
+            ></div>
           </div>
         </div>
 
         <form id="level-form" class="control-rail" novalidate>
           <div class="rail-heading">
-            <span class="rail-index" aria-hidden="true">LAB / 01</span>
-            <h2>LABEL THE CARTRIDGE</h2>
-            <p>
-              Names are public. New levels are playable immediately and clearly
-              marked UNREVIEWED until moderation.
-            </p>
+            <h2>NAME + SHARE</h2>
+            <p>Published levels are unranked and marked UNREVIEWED.</p>
           </div>
 
           <label class="field">
@@ -110,13 +112,8 @@
             <small id="creator-name-error" class="field-message"></small>
           </label>
 
-          <section class="readout" aria-labelledby="readout-title">
-            <h3 id="readout-title">PLAYABILITY READOUT</h3>
+          <section class="readout" aria-label="Level status">
             <dl>
-              <div>
-                <dt>GRID</dt>
-                <dd id="grid-size">-- × --</dd>
-              </div>
               <div>
                 <dt>FILLED</dt>
                 <dd id="filled-readout">0</dd>
@@ -145,7 +142,7 @@
             tabindex="-1"
           >
             <span class="status-code">READY</span>
-            <p>Create an original layout, then submit it for immediate unranked play.</p>
+            <p>Paint at least 8 breakable bricks.</p>
           </div>
         </form>
       </section>

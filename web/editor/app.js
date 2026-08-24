@@ -2,6 +2,7 @@ import {
   LEVEL_SCHEMA,
   emptyLayout,
   isCommunityLevelId,
+  resolvePaintCode,
   validateLevel,
 } from "./community-level.js";
 
@@ -31,7 +32,6 @@ const elements = {
   levelNameError: document.querySelector("#level-name-error"),
   creatorNameError: document.querySelector("#creator-name-error"),
   blockCount: document.querySelector("#block-count"),
-  gridSize: document.querySelector("#grid-size"),
   filledReadout: document.querySelector("#filled-readout"),
   validityReadout: document.querySelector("#validity-readout"),
   submitButton: document.querySelector("#submit-button"),
@@ -43,6 +43,10 @@ let layout = emptyLayout();
 let submitting = false;
 let clearArmed = false;
 let clearTimer = 0;
+let selectedTool = "cycle";
+let painting = false;
+let strokeCode = LEVEL_SCHEMA.empty;
+let paintedIndexes = new Set();
 
 function valueAt(index) {
   const row = Math.floor(index / LEVEL_SCHEMA.columns);
@@ -57,11 +61,6 @@ function setValueAt(index, value) {
     layout[row].slice(0, column) + value + layout[row].slice(column + 1);
 }
 
-function nextCode(code) {
-  const index = LEVEL_SCHEMA.codes.indexOf(code);
-  return LEVEL_SCHEMA.codes[(index + 1) % LEVEL_SCHEMA.codes.length];
-}
-
 function applyBrickStyle(cell, code) {
   const brick = BRICKS[code];
   cell.dataset.value = code === LEVEL_SCHEMA.empty ? "empty" : code;
@@ -71,10 +70,15 @@ function applyBrickStyle(cell, code) {
   const index = Number(cell.dataset.index);
   const row = Math.floor(index / LEVEL_SCHEMA.columns) + 1;
   const column = (index % LEVEL_SCHEMA.columns) + 1;
-  const next = BRICKS[nextCode(code)].name;
+  const action =
+    selectedTool === "cycle"
+      ? `Cycle to ${BRICKS[resolvePaintCode("cycle", code)].name}`
+      : selectedTool === LEVEL_SCHEMA.empty
+        ? "Erase"
+        : `Paint ${BRICKS[selectedTool].name}`;
   cell.setAttribute(
     "aria-label",
-    `Row ${row}, column ${column}: ${brick.name}. Activate for ${next}.`,
+    `Row ${row}, column ${column}: ${brick.name}. ${action}. Shift to erase.`,
   );
 }
 
@@ -102,15 +106,30 @@ function renderGrid() {
 
 function renderPalette() {
   const fragment = document.createDocumentFragment();
-  for (const code of LEVEL_SCHEMA.codes) {
-    const brick = BRICKS[code];
-    const item = document.createElement("span");
+  for (const code of ["cycle", ...LEVEL_SCHEMA.codes]) {
+    const label =
+      code === "cycle"
+        ? "CYCLE"
+        : code === LEVEL_SCHEMA.empty
+          ? "ERASE"
+          : BRICKS[code].name;
+    const item = document.createElement("button");
+    item.type = "button";
     item.className = "palette-chip";
+    item.dataset.tool = code;
+    item.setAttribute("aria-pressed", String(code === selectedTool));
+    item.setAttribute("aria-label", `${label} paint tool`);
+    if (code === "cycle") {
+      item.textContent = label;
+      fragment.append(item);
+      continue;
+    }
+    const brick = BRICKS[code];
     const swatch = document.createElement("span");
     swatch.className = "palette-swatch";
     swatch.style.setProperty("--brick-color", brick.color);
     swatch.setAttribute("aria-hidden", "true");
-    item.append(swatch, brick.name);
+    item.append(swatch, label);
     fragment.append(item);
   }
   elements.palette.replaceChildren(fragment);
@@ -140,7 +159,6 @@ function updateValidation(showErrors = false) {
     String(showErrors && Boolean(result.errors.creator_display_name)),
   );
   elements.blockCount.textContent = `${result.counts.populated} BRICKS`;
-  elements.gridSize.textContent = `${LEVEL_SCHEMA.columns} × ${LEVEL_SCHEMA.rows}`;
   elements.filledReadout.textContent =
     `${result.counts.populated} / ${LEVEL_SCHEMA.maxPopulated}`;
   elements.validityReadout.textContent = result.valid
@@ -151,17 +169,70 @@ function updateValidation(showErrors = false) {
   return result;
 }
 
-function cycleCell(cell) {
-  if (submitting) return;
+function focusCell(cell) {
   for (const candidate of elements.grid.querySelectorAll(".grid-cell[tabindex='0']")) {
     candidate.tabIndex = -1;
   }
   cell.tabIndex = 0;
+}
+
+function paintCell(cell, code) {
+  if (submitting) return;
   const index = Number(cell.dataset.index);
-  const value = nextCode(valueAt(index));
-  setValueAt(index, value);
-  applyBrickStyle(cell, value);
+  if (valueAt(index) === code) return;
+  setValueAt(index, code);
+  applyBrickStyle(cell, code);
   updateValidation();
+}
+
+function selectTool(tool) {
+  if (tool !== "cycle" && !LEVEL_SCHEMA.codes.includes(tool)) return;
+  selectedTool = tool;
+  for (const button of elements.palette.querySelectorAll(".palette-chip")) {
+    button.setAttribute("aria-pressed", String(button.dataset.tool === tool));
+  }
+  for (const cell of elements.grid.querySelectorAll(".grid-cell")) {
+    applyBrickStyle(cell, valueAt(Number(cell.dataset.index)));
+  }
+}
+
+function cellAtPointer(event) {
+  const hit = document.elementFromPoint(event.clientX, event.clientY);
+  const cell = hit?.closest?.(".grid-cell");
+  return cell && elements.grid.contains(cell) ? cell : null;
+}
+
+function beginPaint(event) {
+  if (submitting || event.button !== 0) return;
+  const cell = event.target.closest(".grid-cell");
+  if (!cell) return;
+  event.preventDefault();
+  focusCell(cell);
+  cell.focus({ preventScroll: true });
+  painting = true;
+  paintedIndexes = new Set();
+  strokeCode = resolvePaintCode(
+    selectedTool,
+    valueAt(Number(cell.dataset.index)),
+    event.shiftKey,
+  );
+  continuePaint(event, cell);
+}
+
+function continuePaint(event, knownCell = null) {
+  if (!painting) return;
+  event.preventDefault();
+  const cell = knownCell || cellAtPointer(event);
+  if (!cell) return;
+  const index = Number(cell.dataset.index);
+  if (paintedIndexes.has(index)) return;
+  paintedIndexes.add(index);
+  paintCell(cell, strokeCode);
+}
+
+function endPaint() {
+  painting = false;
+  paintedIndexes.clear();
 }
 
 function handleGridKeydown(event) {
@@ -184,7 +255,11 @@ function handleGridKeydown(event) {
   }
   if (event.key === " " || event.key === "Enter") {
     event.preventDefault();
-    cycleCell(cell);
+    focusCell(cell);
+    paintCell(
+      cell,
+      resolvePaintCode(selectedTool, valueAt(index), event.shiftKey),
+    );
     return;
   }
   if (targetIndex !== index) {
@@ -305,10 +380,15 @@ function armOrClearGrid() {
   setStatus("ready", "GRID CLEARED", "The cartridge is blank and ready for a new layout.");
 }
 
-elements.grid.addEventListener("click", (event) => {
-  const cell = event.target.closest(".grid-cell");
-  if (cell) cycleCell(cell);
+elements.palette.addEventListener("click", (event) => {
+  const tool = event.target.closest(".palette-chip")?.dataset.tool;
+  if (tool) selectTool(tool);
 });
+elements.grid.addEventListener("pointerdown", beginPaint);
+window.addEventListener("pointermove", (event) => continuePaint(event));
+window.addEventListener("pointerup", endPaint);
+window.addEventListener("pointercancel", endPaint);
+window.addEventListener("blur", endPaint);
 elements.grid.addEventListener("keydown", handleGridKeydown);
 elements.form.addEventListener("submit", submitLevel);
 elements.clearButton.addEventListener("click", armOrClearGrid);

@@ -107,8 +107,7 @@ a:hover {
 .brand-subtitle,
 .lab-status,
 .page-footer,
-.palette-strip,
-.rail-index {
+.palette-strip {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
 }
@@ -280,7 +279,8 @@ h3 {
   justify-self: center;
   grid-template-columns: repeat(var(--grid-columns, 13), minmax(18px, 1fr));
   gap: var(--cell-gap);
-  touch-action: manipulation;
+  touch-action: none;
+  user-select: none;
 }
 
 .grid-cell {
@@ -359,26 +359,47 @@ h3 {
 }
 
 .palette-strip {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   min-height: 46px;
-  align-items: center;
-  gap: 18px;
+  align-items: start;
+  gap: 12px;
   padding: 14px 8px 0;
   color: var(--muted);
+}
+
+.palette-label {
+  padding-top: 8px;
 }
 
 .palette {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 6px;
 }
 
 .palette-chip {
   display: inline-flex;
+  min-height: 28px;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 1px solid var(--rail-blue);
+  border-radius: 0;
   color: var(--white);
+  background: transparent;
   font-size: 0.64rem;
+  cursor: pointer;
+}
+
+.palette-chip:hover {
+  border-color: var(--cyan);
+}
+
+.palette-chip[aria-pressed="true"] {
+  border-color: var(--yellow);
+  color: var(--yellow);
+  background: var(--rail-shadow);
 }
 
 .palette-swatch {
@@ -399,12 +420,6 @@ h3 {
 .rail-heading {
   padding-bottom: 14px;
   border-bottom: 2px solid var(--rail-blue);
-}
-
-.rail-index {
-  display: block;
-  margin-bottom: 18px;
-  color: var(--yellow);
 }
 
 .field {
@@ -671,11 +686,8 @@ button:disabled {
   }
 
   .palette-strip {
-    align-items: flex-start;
-  }
-
-  .palette-label {
-    max-width: 7ch;
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .control-rail {

@@ -17,8 +17,11 @@ submit an original fixed-grid phase without learning a separate design tool.
 ## Content and constraints
 
 - The 13×10 matrix is the primary instrument and remains visible as a whole.
-- Cells cycle through empty and every native TINYNOID brick code.
-- Keyboard, pointer, and touch input expose the same authoring path.
+- A compact paint toolbar selects every native TINYNOID brick code, an eraser,
+  or the original cycle behavior.
+- Pointer and touch dragging paint a continuous stroke; Shift-click/drag erases.
+- Keyboard users choose the same tools, move with arrows, and apply with
+  Space/Enter.
 - Level and creator names are required and normalized before submission.
 - Density, validation, loading, error, duplicate, and success states are explicit.
 - Submission uses only the public Edge Function and publishable key.
@@ -30,8 +33,8 @@ submit an original fixed-grid phase without learning a separate design tool.
 ## Chosen direction and memorable moment
 
 The editor is a cartridge workbench rather than a dashboard. The live arena is
-the largest object; cycling one cell immediately turns an empty socket into a
-beveled game brick while the playability readout updates beside it.
+the largest object; a chosen paint tool turns a dragged path into beveled game
+bricks while the compact readiness readout updates beside it.
 
 ## Unresolved decisions
 

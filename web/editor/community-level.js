@@ -25,6 +25,17 @@ export function emptyLayout() {
   );
 }
 
+export function resolvePaintCode(tool, currentCode, erase = false) {
+  if (erase || tool === LEVEL_SCHEMA.empty) {
+    return LEVEL_SCHEMA.empty;
+  }
+  if (tool === "cycle") {
+    const index = LEVEL_SCHEMA.codes.indexOf(currentCode);
+    return LEVEL_SCHEMA.codes[(index + 1) % LEVEL_SCHEMA.codes.length];
+  }
+  return LEVEL_SCHEMA.codes.includes(tool) ? tool : currentCode;
+}
+
 export function countLayout(layout) {
   let populated = 0;
   let destructible = 0;
