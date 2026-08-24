@@ -10,8 +10,7 @@ enum HitKind {
 signal broken(
 	points: int,
 	world_position: Vector2,
-	effect_color: Color,
-	power_up_type: int
+	effect_color: Color
 )
 signal struck(
 	world_position: Vector2,
@@ -26,7 +25,6 @@ const FLASH_COLOR := Color("#f7f4ff")
 @export var score := 50
 @export var brick_color := Color("#f15b68")
 @export var shadow_color := Color("#8b263d")
-@export var power_up_type := -1
 @export var indestructible := false
 
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -38,6 +36,8 @@ var _flash_time_left := 0.0
 
 func _ready() -> void:
 	_max_hit_points = maxi(hit_points, 1)
+	if indestructible:
+		set_collision_layer_value(2, true)
 	set_process(false)
 	queue_redraw()
 
@@ -101,7 +101,7 @@ func hit() -> void:
 
 	_broken = true
 	collision_shape.set_deferred("disabled", true)
-	broken.emit(score, global_position, brick_color, power_up_type)
+	broken.emit(score, global_position, brick_color)
 	queue_free()
 
 

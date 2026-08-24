@@ -30,10 +30,14 @@ func _run() -> void:
 	await _test_audio_levels()
 	await _test_display_modes()
 	await _test_main_menu()
+	await _test_touch_controls()
 	await _test_campaign_routing()
 	await _test_game_session()
 	await _test_level_catalog()
+	await _test_capsule_drop_director()
+	await _test_dynamic_power_up_flow()
 	await _test_brick_rules()
+	await _test_thru_physics()
 	await _test_gold_stage_clear()
 	await _test_level_content()
 	await _test_brick_scores_once()
@@ -331,6 +335,7 @@ func _test_display_modes() -> void:
 func _test_main_menu() -> void:
 	AudioSettings.set_level(3)
 
+	GameSession.new_game(1, 8080)
 	var menu: MainMenu = MAIN_MENU_SCENE.instantiate()
 	var start_requested := [-1]
 	var quit_requested := [false]
@@ -342,16 +347,16 @@ func _test_main_menu() -> void:
 	get_tree().root.add_child(menu)
 	await get_tree().process_frame
 	_check(
-		MainMenu.SUBTITLE == "A tiny tribute from me to the original game",
+		MainMenu.SUBTITLE == "A tiny tribute from Adrian Mato to Arkanoid",
 		"The menu carries the requested tribute subtitle."
 	)
 	_check(
 		MainMenu.INSTRUCTION_LINES == [
 			"Arrow keys to move & select",
-			"Enter / Spacebar to select",
+			"Enter / Space / tap to select",
 			"ESC to quit",
 		],
-		"The menu carries only the requested keyboard instructions."
+		"The menu advertises keyboard and touch selection."
 	)
 	_check(PixelFont.GLYPHS.has("."), "The bitmap font supports the domain period.")
 	_check(PixelFont.GLYPHS.has("/"), "The bitmap font supports the instruction slash.")
@@ -469,6 +474,107 @@ func _test_main_menu() -> void:
 	await get_tree().process_frame
 
 
+func _test_touch_controls() -> void:
+	_check(
+		not ProjectSettings.get_setting(
+			"input_devices/pointing/emulate_mouse_from_touch",
+			true
+		),
+		"Touch is handled explicitly without duplicate emulated mouse clicks."
+	)
+
+	var tap := InputEventScreenTouch.new()
+	tap.index = 0
+	tap.position = Vector2(128, 94)
+	tap.pressed = true
+	var second_touch := InputEventScreenTouch.new()
+	second_touch.index = 1
+	second_touch.position = Vector2(128, 94)
+	second_touch.pressed = true
+	_check(GamePointer.is_primary_press(tap), "A primary tap maps to a pointer press.")
+	_check(
+		not GamePointer.is_primary_press(second_touch),
+		"Secondary touches do not trigger duplicate actions."
+	)
+
+	GameSession.new_game(1, 8080)
+	var menu: MainMenu = MAIN_MENU_SCENE.instantiate()
+	var tapped_stage := [-1]
+	menu.start_requested.connect(
+		func(stage_number: int) -> void:
+			tapped_stage[0] = stage_number
+	)
+	get_tree().root.add_child(menu)
+	await get_tree().process_frame
+	menu._gui_input(tap)
+	_check(tapped_stage[0] == 1, "Tapping Play activates the selected stage.")
+	menu.queue_free()
+	await get_tree().process_frame
+
+	GameSession.new_game(1, 8080)
+	var gameplay: Gameplay = GAMEPLAY_SCENE.instantiate()
+	get_tree().root.add_child(gameplay)
+	await get_tree().process_frame
+
+	tap.position = Vector2(196, 200)
+	gameplay.paddle._input(tap)
+	gameplay._unhandled_input(tap)
+	for physics_step in range(2):
+		await get_tree().physics_frame
+	_check(gameplay.ball.is_active(), "A gameplay tap launches the held ball.")
+	_check(
+		is_equal_approx(gameplay.paddle.global_position.x, 196.0),
+		"A gameplay tap moves the paddle to the touch position."
+	)
+
+	var drag := InputEventScreenDrag.new()
+	drag.index = 0
+	drag.position = Vector2(72, 200)
+	gameplay.paddle._input(drag)
+	await get_tree().physics_frame
+	_check(
+		is_equal_approx(gameplay.paddle.global_position.x, 72.0),
+		"Dragging a primary touch steers the paddle."
+	)
+
+	gameplay.apply_power_up(PowerUp.PowerType.LASER)
+	tap.position = Vector2(128, 200)
+	gameplay._unhandled_input(tap)
+	_check(gameplay.lasers.get_child_count() == 2, "A tap fires an equipped Laser.")
+	for active_ball in gameplay._get_balls():
+		active_ball.deactivate()
+	gameplay.queue_free()
+	await get_tree().process_frame
+
+	var game_over: GameOverScreen = GAME_OVER_SCENE.instantiate()
+	var retry_requested := [false]
+	game_over.new_game_requested.connect(func() -> void: retry_requested[0] = true)
+	get_tree().root.add_child(game_over)
+	await get_tree().process_frame
+	Input.parse_input_event(tap)
+	await get_tree().process_frame
+	_check(retry_requested[0], "A tap retries from Game Over.")
+	tap.pressed = false
+	Input.parse_input_event(tap)
+	game_over.queue_free()
+	await get_tree().process_frame
+
+	var stage_clear: StageClearScreen = STAGE_CLEAR_SCENE.instantiate()
+	var continue_requested := [false]
+	stage_clear.replay_requested.connect(func() -> void: continue_requested[0] = true)
+	get_tree().root.add_child(stage_clear)
+	await get_tree().process_frame
+	tap.pressed = true
+	Input.parse_input_event(tap)
+	await get_tree().process_frame
+	_check(continue_requested[0], "A tap continues from Stage Clear.")
+	tap.pressed = false
+	Input.parse_input_event(tap)
+	stage_clear.queue_free()
+	await get_tree().process_frame
+	GameSession.new_game()
+
+
 func _test_campaign_routing() -> void:
 	var main := MAIN_SCENE.instantiate()
 	get_tree().root.add_child(main)
@@ -479,6 +585,8 @@ func _test_campaign_routing() -> void:
 	_check(GameSession.level == 32, "Campaign routing starts a selected late stage.")
 	_check(MusicController.get_current_track_id() == 32, "Stage 32 uses song 32.")
 	var stage_32_stream_id := MusicController.get_stream().get_instance_id()
+	GameSession.register_ball_lost()
+	_check(GameSession.balls_remaining == 2, "The campaign can reach Stage Clear with two lives.")
 	main.call(&"_show_gameplay")
 	await get_tree().process_frame
 	_check(
@@ -489,6 +597,10 @@ func _test_campaign_routing() -> void:
 	main.call(&"_continue_campaign")
 	await get_tree().process_frame
 	_check(GameSession.level == 33, "Clearing stage 32 advances to stage 33.")
+	_check(
+		GameSession.balls_remaining == 2,
+		"Advancing after Stage Clear preserves the current life count."
+	)
 	_check(MusicController.get_current_track_id() == 33, "Stage 33 switches to song 33.")
 	_check(
 		main.find_child("Gameplay", true, false) != null,
@@ -513,17 +625,34 @@ func _test_campaign_routing() -> void:
 func _test_game_session() -> void:
 	var session := GameSessionState.new()
 	get_tree().root.add_child(session)
-	session.new_game()
+	session.new_game(1, 12345)
 
 	_check(session.score == 0, "A new game starts with zero score.")
 	_check(session.balls_remaining == 3, "A new game starts with three balls.")
+	_check(session.run_seed == 12345, "A supplied run seed is preserved for replay.")
+	_check(session.starter_capsule_pending, "A new run starts with its beginner reward pending.")
+	session.mark_starter_capsule_spawned()
+	_check(
+		not session.starter_capsule_pending,
+		"Spawning the first capsule consumes the beginner reward."
+	)
 	session.add_ball()
 	_check(session.balls_remaining == 4, "Extra Ball adds one ball.")
 	session.new_game(17)
 	_check(session.level == 17, "A new game can start from a selected stage.")
+	var selected_stage_seed := session.run_seed
+	session.mark_starter_capsule_spawned()
+	session.add_ball()
 	session.advance_level()
 	_check(session.level == 18, "Campaign progression advances one stage.")
+	_check(session.balls_remaining == 4, "Campaign progression preserves earned lives.")
+	_check(session.run_seed == selected_stage_seed, "Campaign progression keeps the run seed.")
+	_check(
+		not session.starter_capsule_pending,
+		"Campaign progression does not restore the one-time beginner reward."
+	)
 	session.new_game()
+	_check(session.starter_capsule_pending, "A true restart restores the beginner reward.")
 
 	session.award(50)
 	_check(session.score == 50, "Score awards are accumulated.")
@@ -601,6 +730,285 @@ func _test_level_catalog() -> void:
 	_check(found_gold, "The campaign includes Gold bricks.")
 
 
+func _test_capsule_drop_director() -> void:
+	_check(CapsuleDropDirector.calculate_budget(19) == 2, "Sparse stages budget two capsules.")
+	_check(CapsuleDropDirector.calculate_budget(24) == 3, "A 24-brick stage budgets three capsules.")
+	_check(CapsuleDropDirector.calculate_budget(64) == 8, "A 64-brick stage budgets eight capsules.")
+	_check(CapsuleDropDirector.calculate_budget(78) == 8, "Dense stages cap at eight capsules.")
+
+	var trace_a := _simulate_capsule_stage(4242, 1, 64, true)
+	var trace_b := _simulate_capsule_stage(4242, 1, 64, true)
+	_check(trace_a == trace_b, "The same seed and event stream reproduce every drop decision.")
+	_check(
+		trace_a.types[0] in [
+			PowerUp.PowerType.WIDE,
+			PowerUp.PowerType.SLOW,
+			PowerUp.PowerType.MULTI,
+		],
+		"The first run reward comes from the beginner-friendly pool."
+	)
+
+	var blocked_director := CapsuleDropDirector.new(91, 1, 64, true)
+	var blocked_drop_count := 0
+	for break_number in range(1, 21):
+		var blocked_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			64 - break_number,
+			CapsuleDropDirector.MAX_FALLING_CAPSULES,
+			0,
+			3,
+			1
+		)
+		if (
+			blocked_director.on_brick_destroyed(blocked_snapshot)
+			!= CapsuleDropDirector.NO_DROP
+		):
+			blocked_drop_count += 1
+	_check(
+		blocked_drop_count == 0,
+		"Visible capsules suspend drop rolls without advancing pity."
+	)
+	var resumed_drop_break := -1
+	for break_number in range(21, 27):
+		var resumed_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			64 - break_number,
+			0,
+			0,
+			3,
+			1
+		)
+		if blocked_director.on_brick_destroyed(resumed_snapshot) >= 0:
+			resumed_drop_break = break_number
+			break
+	_check(
+		resumed_drop_break >= 23 and resumed_drop_break <= 26,
+		"Drop pity resumes from zero after visible capsules clear."
+	)
+
+	var active_filter_director := CapsuleDropDirector.new(617, 7, 40, false)
+	var active_filter_violations := 0
+	for break_number in range(1, 40):
+		var active_filter_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			40 - break_number,
+			0,
+			(1 << PowerUp.PowerType.WIDE) | (1 << PowerUp.PowerType.LASER),
+			3,
+			1
+		)
+		var filtered_type := active_filter_director.on_brick_destroyed(
+			active_filter_snapshot
+		)
+		if filtered_type in [
+			PowerUp.PowerType.WIDE,
+			PowerUp.PowerType.LASER,
+		]:
+			active_filter_violations += 1
+	_check(
+		active_filter_violations == 0,
+		"All active capsule types are excluded from random selection."
+	)
+
+	var starter_mask := (
+		(1 << PowerUp.PowerType.WIDE)
+		| (1 << PowerUp.PowerType.SLOW)
+		| (1 << PowerUp.PowerType.MULTI)
+	)
+	var blocked_starter_director := CapsuleDropDirector.new(29, 1, 64, true)
+	var blocked_starter_drops := 0
+	for break_number in range(1, 13):
+		var blocked_starter_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			64 - break_number,
+			0,
+			starter_mask,
+			3,
+			1
+		)
+		if blocked_starter_director.on_brick_destroyed(blocked_starter_snapshot) >= 0:
+			blocked_starter_drops += 1
+	_check(
+		blocked_starter_drops == 0,
+		"The beginner pool waits while all starter effects are active."
+	)
+	var resumed_starter := blocked_starter_director.on_brick_destroyed(
+		CapsuleDropDirector.DropSnapshot.new(51, 0, 0, 3, 1)
+	)
+	_check(
+		resumed_starter in [
+			PowerUp.PowerType.WIDE,
+			PowerUp.PowerType.SLOW,
+			PowerUp.PowerType.MULTI,
+		],
+		"The guaranteed beginner drop resumes when a starter effect becomes useful."
+	)
+
+	var all_persistent_mask := 0
+	for active_type in [
+		PowerUp.PowerType.WIDE,
+		PowerUp.PowerType.SLOW,
+		PowerUp.PowerType.MULTI,
+		PowerUp.PowerType.CATCH,
+		PowerUp.PowerType.LASER,
+		PowerUp.PowerType.THRU,
+	]:
+		all_persistent_mask |= 1 << active_type
+	var exhausted_pool_director := CapsuleDropDirector.new(19, 1, 64, false)
+	var exhausted_pool_types: Array[int] = []
+	var exhausted_pool_positions: Array[int] = []
+	for break_number in range(1, 41):
+		var exhausted_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			64 - break_number,
+			0,
+			all_persistent_mask,
+			3,
+			1
+		)
+		var exhausted_type := exhausted_pool_director.on_brick_destroyed(
+			exhausted_snapshot
+		)
+		if exhausted_type >= 0:
+			exhausted_pool_types.append(exhausted_type)
+			exhausted_pool_positions.append(break_number)
+			if exhausted_pool_types.size() == 2:
+				break
+	_check(
+		exhausted_pool_types == [
+			PowerUp.PowerType.EXTRA_BALL,
+			PowerUp.PowerType.BREAK,
+		],
+		"An exhausted type pool waits for the next useful capsule."
+	)
+	_check(
+		exhausted_pool_positions[1] == 32,
+		"Pity remains guaranteed when Break becomes eligible."
+	)
+
+	var total_stage_runs := 0
+	var total_drops := 0
+	var total_density := 0.0
+	var capped_stage_runs := 0
+	var player_drops := 0
+	var stages_with_break := 0
+	var opening_violations := 0
+	var budget_violations := 0
+	var gap_violations := 0
+	var repeat_violations := 0
+	for run_seed in range(10000):
+		for stage_number in range(1, LevelCatalog.STAGE_COUNT + 1):
+			var destructible_count := _get_destructible_layout_count(stage_number)
+			var simulation := _simulate_capsule_stage(
+				run_seed,
+				stage_number,
+				destructible_count,
+				stage_number == 1
+			)
+			var positions: Array = simulation.positions
+			var types: Array = simulation.types
+			var budget := CapsuleDropDirector.calculate_budget(destructible_count)
+			total_stage_runs += 1
+			total_drops += types.size()
+			total_density += float(types.size()) / destructible_count
+			capped_stage_runs += 1 if types.size() == budget else 0
+			var stage_has_break := false
+
+			if positions[0] < 3 or positions[0] > 6:
+				opening_violations += 1
+			if types.size() > budget:
+				budget_violations += 1
+			for drop_index in range(types.size()):
+				var power_type: int = types[drop_index]
+				player_drops += 1 if power_type == PowerUp.PowerType.EXTRA_BALL else 0
+				stage_has_break = stage_has_break or power_type == PowerUp.PowerType.BREAK
+				if drop_index == 0:
+					continue
+				var gap: int = positions[drop_index] - positions[drop_index - 1]
+				if gap < 3 or gap > 10:
+					gap_violations += 1
+				if types[drop_index] == types[drop_index - 1]:
+					repeat_violations += 1
+			stages_with_break += 1 if stage_has_break else 0
+
+	var mean_drops := float(total_drops) / total_stage_runs
+	var mean_density := total_density / total_stage_runs
+	var cap_rate := float(capped_stage_runs) / total_stage_runs
+	var mean_player_drops := float(player_drops) / total_stage_runs
+	var break_stage_rate := float(stages_with_break) / total_stage_runs
+	print(
+		"Capsule simulation: %.3f drops/stage, %.3f%% density, %.2f%% caps."
+		% [mean_drops, mean_density * 100.0, cap_rate * 100.0]
+	)
+	_check(
+		opening_violations == 0,
+		"Every simulated stage rewards its first 3-6 eligible breaks."
+	)
+	_check(budget_violations == 0, "Capsule simulations never exceed the stage budget.")
+	_check(gap_violations == 0, "Drop gaps stay inside the cooldown and pity bounds.")
+	_check(repeat_violations == 0, "Capsule types never repeat immediately.")
+	_check(
+		mean_drops >= 5.3 and mean_drops <= 5.7,
+		"Campaign simulations average 5.3-5.7 capsule drops per stage."
+	)
+	_check(
+		mean_density >= 0.115 and mean_density <= 0.128,
+		"Campaign simulations keep mean capsule density near 12%."
+	)
+	_check(
+		cap_rate >= 0.80 and cap_rate <= 0.90,
+		"Most, but not all, simulated stages exhaust their capsule budget."
+	)
+	_check(mean_player_drops <= 0.4, "Player capsules remain below 0.4 spawns per stage.")
+	_check(break_stage_rate <= 0.08, "Break appears in no more than 8% of simulated stages.")
+
+
+func _test_dynamic_power_up_flow() -> void:
+	GameSession.new_game(1, 4242)
+	var gameplay: Gameplay = GAMEPLAY_SCENE.instantiate()
+	get_tree().root.add_child(gameplay)
+	await get_tree().process_frame
+
+	var destroyed_bricks := 0
+	while gameplay.power_ups.get_child_count() == 0 and destroyed_bricks < 6:
+		var target := gameplay.level.bricks.get_child(0) as Brick
+		target.hit()
+		destroyed_bricks += 1
+		await get_tree().process_frame
+
+	_check(
+		destroyed_bricks >= 3 and destroyed_bricks <= 6,
+		"Gameplay spawns the first capsule within 3-6 brick breaks."
+	)
+	_check(gameplay.power_ups.get_child_count() == 1, "A drop decision spawns one falling capsule.")
+	var chip := gameplay.power_ups.get_child(0) as PowerUp
+	_check(
+		chip.power_type in [
+			PowerUp.PowerType.WIDE,
+			PowerUp.PowerType.SLOW,
+			PowerUp.PowerType.MULTI,
+		],
+		"The first gameplay capsule uses the beginner pool."
+	)
+	_check(
+		not GameSession.starter_capsule_pending,
+		"Spawning the first gameplay capsule consumes the run-level beginner reward."
+	)
+	var score_before_pickup := GameSession.score
+	var collected_type := chip.power_type
+	chip.collect(gameplay.paddle)
+	await get_tree().process_frame
+	_check(
+		GameSession.score == score_before_pickup + Gameplay.POWER_UP_SCORE,
+		"Collecting a dynamic capsule awards 100 points."
+	)
+	_check(
+		gameplay.has_active_power_up(collected_type),
+		"The dynamically selected capsule applies its gameplay effect."
+	)
+
+	for active_ball in gameplay._get_balls():
+		active_ball.deactivate()
+	gameplay.queue_free()
+	await get_tree().process_frame
+	GameSession.new_game()
+
+
 func _test_brick_rules() -> void:
 	var expected_scores := {
 		"W": 50,
@@ -656,8 +1064,7 @@ func _test_brick_rules() -> void:
 		func(
 			points: int,
 			_world_position: Vector2,
-			_effect_color: Color,
-			_power_up_type: int
+			_effect_color: Color
 		) -> void:
 			silver_score[0] += points
 	)
@@ -680,8 +1087,7 @@ func _test_brick_rules() -> void:
 		func(
 			_points: int,
 			_world_position: Vector2,
-			_effect_color: Color,
-			_power_up_type: int
+			_effect_color: Color
 		) -> void:
 			gold_broken[0] = true
 	)
@@ -702,6 +1108,57 @@ func _test_brick_rules() -> void:
 		"Gold contacts identify the indestructible hit kind."
 	)
 	gold_brick.queue_free()
+	await get_tree().process_frame
+
+
+func _test_thru_physics() -> void:
+	var silver_world := Node2D.new()
+	var silver_brick: Brick = BRICK_SCENE.instantiate()
+	var silver_ball: BreakerBall = BALL_SCENE.instantiate()
+	silver_brick.hit_points = 3
+	silver_brick.position = Vector2(100, 100)
+	silver_ball.position = Vector2(72, 100)
+	silver_world.add_child(silver_brick)
+	silver_world.add_child(silver_ball)
+	get_tree().root.add_child(silver_world)
+	await get_tree().process_frame
+
+	silver_ball.set_piercing(true)
+	await get_tree().process_frame
+	_check(
+		not silver_ball.get_collision_mask_value(4),
+		"Thru disables physical collisions with destructible bricks."
+	)
+	silver_ball.launch_in_direction(Vector2.RIGHT)
+	for physics_step in range(12):
+		await get_tree().physics_frame
+	_check(
+		silver_brick.hit_points == 2,
+		"Thru damages Silver once per pass (remaining hits: %d)." % silver_brick.hit_points
+	)
+	_check(silver_ball.velocity.x > 0.0, "Thru does not bounce off Silver.")
+	silver_world.queue_free()
+	await get_tree().process_frame
+
+	var gold_world := Node2D.new()
+	var gold_brick: Brick = BRICK_SCENE.instantiate()
+	var gold_ball: BreakerBall = BALL_SCENE.instantiate()
+	gold_brick.indestructible = true
+	gold_brick.position = Vector2(100, 100)
+	gold_ball.position = Vector2(72, 100)
+	gold_world.add_child(gold_brick)
+	gold_world.add_child(gold_ball)
+	get_tree().root.add_child(gold_world)
+	await get_tree().process_frame
+
+	gold_ball.set_piercing(true)
+	await get_tree().process_frame
+	gold_ball.launch_in_direction(Vector2.RIGHT)
+	for physics_step in range(12):
+		await get_tree().physics_frame
+	_check(is_instance_valid(gold_brick), "Thru never destroys Gold.")
+	_check(gold_ball.velocity.x < 0.0, "Gold remains solid while Thru is active.")
+	gold_world.queue_free()
 	await get_tree().process_frame
 
 
@@ -752,12 +1209,9 @@ func _test_level_content() -> void:
 	_check(level.get_brick_count() == 64, "Level 1 has a 64-brick rainbow gate.")
 
 	var total_score := 0
-	var power_up_types := {}
 	for child in level.bricks.get_children():
 		var brick := child as Brick
 		total_score += brick.score
-		if brick.power_up_type >= 0:
-			power_up_types[brick.power_up_type] = true
 
 	_check(total_score == 5650, "The rainbow gate has the expected score value.")
 	_check(_brick_score_at(level, Vector2(64, 52)) == 90, "The red crown is present.")
@@ -767,16 +1221,6 @@ func _test_level_content() -> void:
 	_check(_brick_score_at(level, Vector2(64, 92)) == 70, "The light-blue row is present.")
 	_check(_brick_score_at(level, Vector2(48, 102)) == 100, "The blue clusters are present.")
 	_check(_brick_score_at(level, Vector2(80, 112)) == 110, "The magenta foundation is present.")
-	_check(
-		power_up_types.size() == PowerUp.POWER_TYPE_COUNT,
-		"Each stage contains all seven power-up drops."
-	)
-	for power_type in range(PowerUp.POWER_TYPE_COUNT):
-		_check(
-			power_up_types.has(power_type),
-			"Stage 1 includes power-up type %d." % power_type
-		)
-
 	var level_cleared := [false]
 	level.level_cleared.connect(func() -> void: level_cleared[0] = true)
 	for child in level.bricks.get_children():
@@ -798,8 +1242,7 @@ func _test_brick_scores_once() -> void:
 		func(
 			points: int,
 			_world_position: Vector2,
-			_effect_color: Color,
-			_power_up_type: int
+			_effect_color: Color
 		) -> void:
 			awards[0] += points
 	)
@@ -988,6 +1431,7 @@ func _test_power_up_chip() -> void:
 		PowerUp.PowerType.CATCH: "C",
 		PowerUp.PowerType.LASER: "L",
 		PowerUp.PowerType.BREAK: "B",
+		PowerUp.PowerType.THRU: "T",
 	}
 	for power_type in expected_symbols:
 		_check(
@@ -1040,10 +1484,14 @@ func _test_gameplay_scene() -> void:
 	_check(gameplay.paddle.global_position == Vector2(128, 220), "The paddle starts centered.")
 	_check(gameplay.hud.is_launch_ready(), "The HUD initially shows the launch cue.")
 	_check(
-		RetroHud.LAUNCH_PROMPT == "Press spacebar to fire the ball",
-		"The launch advice names the Spacebar action."
+		RetroHud.LAUNCH_PROMPT == "Press SPACEBAR or tap to fire",
+		"The launch advice names keyboard and touch actions."
 	)
-	gameplay.ball.launch()
+	var launch_event := InputEventAction.new()
+	launch_event.action = "launch"
+	launch_event.pressed = true
+	gameplay._unhandled_input(launch_event)
+	_check(gameplay.ball.is_active(), "The Gameplay input seam launches a held ball.")
 	_check(not gameplay.hud.is_launch_ready(), "The launch cue clears when the ball launches.")
 
 	gameplay.queue_free()
@@ -1205,22 +1653,10 @@ func _test_power_up_effects() -> void:
 	get_tree().root.add_child(gameplay)
 	await get_tree().process_frame
 
-	var wide_brick := _find_power_up_brick(
-		gameplay.level,
-		PowerUp.PowerType.WIDE
-	)
-	_check(wide_brick != null, "The stage exposes a Wide drop brick.")
-	wide_brick.hit()
-	await get_tree().process_frame
-	_check(gameplay.power_ups.get_child_count() == 1, "Marked bricks spawn power-up chips.")
-
-	var wide_chip := gameplay.power_ups.get_child(0) as PowerUp
-	_check(wide_chip.power_type == PowerUp.PowerType.WIDE, "The Wide brick drops Wide.")
-	wide_chip.collect(gameplay.paddle)
-	await get_tree().process_frame
+	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
 	_check(gameplay.paddle.paddle_width == 56.0, "Wide enlarges the paddle.")
 	_check(
-		gameplay.get_active_power_up() == PowerUp.PowerType.WIDE,
+		gameplay.has_active_power_up(PowerUp.PowerType.WIDE),
 		"Wide remains active after collection."
 	)
 	await get_tree().create_timer(0.1).timeout
@@ -1232,61 +1668,22 @@ func _test_power_up_effects() -> void:
 	gameplay.ball.launch()
 	gameplay.apply_power_up(PowerUp.PowerType.SLOW)
 	_check(gameplay.ball.speed == 150.0, "Slow reduces ball speed to 150 pixels per second.")
-	_check(gameplay.paddle.paddle_width == 40.0, "Slow replaces the prior Wide effect.")
 	_check(
-		gameplay.get_active_power_up() == PowerUp.PowerType.SLOW,
-		"Only Slow remains active after replacement."
-	)
-
-	gameplay.apply_power_up(PowerUp.PowerType.MULTI)
-	_check(gameplay.balls.get_child_count() == 3, "Multi-ball creates three active balls.")
-	for active_ball in gameplay.balls.get_children():
-		_check(
-			(active_ball as BreakerBall).speed == 200.0,
-			"Multi-ball replaces Slow and restores base speed."
-		)
-
-	var score_before_extra := GameSession.score
-	gameplay.apply_power_up(PowerUp.PowerType.EXTRA_BALL)
-	_check(GameSession.balls_remaining == 4, "Extra Ball increments the session counter.")
-	_check(
-		GameSession.score == score_before_extra + Gameplay.POWER_UP_SCORE,
-		"Every collected power-up awards 100 points."
+		gameplay.paddle.paddle_width == 56.0,
+		"Slow complements Wide instead of replacing it."
 	)
 	_check(
-		gameplay.get_active_power_up() == PowerUp.PowerType.MULTI,
-		"Instant Extra Ball does not replace the active temporary effect."
+		gameplay.has_active_power_up(PowerUp.PowerType.WIDE)
+		and gameplay.has_active_power_up(PowerUp.PowerType.SLOW),
+		"Wide and Slow remain active together."
 	)
-
-	var lost_ball := gameplay.balls.get_child(1) as BreakerBall
-	gameplay._on_death_zone_body_entered(lost_ball)
-	await get_tree().process_frame
-	_check(gameplay.balls.get_child_count() == 2, "Losing one multi-ball keeps play active.")
-	_check(GameSession.balls_remaining == 4, "A partial multi-ball loss costs no life.")
-	_check(
-		gameplay.get_active_power_up() == PowerUp.PowerType.MULTI,
-		"Multi-ball remains active while another split ball survives."
-	)
-
-	var second_lost_ball := gameplay.balls.get_child(1) as BreakerBall
-	gameplay._on_death_zone_body_entered(second_lost_ball)
-	await get_tree().process_frame
-	_check(gameplay.balls.get_child_count() == 1, "A second split-ball loss leaves one ball.")
-	_check(
-		gameplay.get_active_power_up() == -1,
-		"Multi-ball ends naturally when only one ball remains."
-	)
-
-	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
-	await get_tree().process_frame
-	_check(gameplay.balls.get_child_count() == 1, "Wide keeps the remaining single ball.")
-	_check(gameplay.paddle.paddle_width == 56.0, "The replacement Wide effect activates.")
 
 	gameplay.apply_power_up(PowerUp.PowerType.CATCH)
 	_check(gameplay.paddle.catch_enabled, "Catch enables the paddle catch surface.")
-	_check(gameplay.paddle.paddle_width == 40.0, "Catch replaces Expand.")
+	_check(gameplay.paddle.paddle_width == 56.0, "Catch complements Wide.")
 
 	gameplay.ball.reset_for_serve(gameplay.paddle)
+	gameplay._apply_active_ball_effects(gameplay.ball)
 	gameplay.ball.global_position = Vector2(128, 208)
 	gameplay.ball.launch_in_direction(Vector2.DOWN)
 	for physics_step in range(8):
@@ -1296,14 +1693,89 @@ func _test_power_up_effects() -> void:
 		gameplay.ball.global_position == Vector2(128, 212),
 		"Catch docks the held ball above the paddle."
 	)
-	gameplay.ball.launch()
-	_check(gameplay.ball.is_active(), "FIRE releases a caught ball.")
 
 	gameplay.apply_power_up(PowerUp.PowerType.LASER)
 	_check(gameplay.paddle.laser_enabled, "Laser equips the paddle emitters.")
-	_check(not gameplay.paddle.catch_enabled, "Laser replaces Catch.")
-	gameplay._spawn_lasers()
-	_check(gameplay.lasers.get_child_count() == 2, "Laser fires a paired shot.")
+	_check(gameplay.paddle.catch_enabled, "Laser complements Catch.")
+	_check(
+		gameplay.hud.get_power_up_label() == Gameplay.LASER_TIP,
+		"Laser collection shows the keyboard and touch firing tip."
+	)
+	_check(
+		is_equal_approx(gameplay.hud.get_power_up_time_left(), 3.0),
+		"Laser usage tip remains visible for three seconds."
+	)
+	var fire_event := InputEventAction.new()
+	fire_event.action = "launch"
+	fire_event.pressed = true
+	gameplay._unhandled_input(fire_event)
+	_check(gameplay.ball.is_active(), "FIRE releases a caught ball while Laser is active.")
+	_check(gameplay.lasers.get_child_count() == 2, "The same FIRE press launches a paired shot.")
+	gameplay._clear_lasers()
+
+	gameplay.apply_power_up(PowerUp.PowerType.THRU)
+	await get_tree().process_frame
+	_check(gameplay.ball.is_piercing(), "Thru enables piercing on the active ball.")
+	_check(gameplay.paddle.laser_enabled, "Thru complements Laser.")
+	_check(gameplay.paddle.catch_enabled, "Thru complements Catch.")
+	_check(gameplay.paddle.paddle_width == 56.0, "Thru preserves Wide.")
+	_check(gameplay.ball.speed == 150.0, "Thru preserves Slow.")
+
+	gameplay.apply_power_up(PowerUp.PowerType.MULTI)
+	_check(gameplay.balls.get_child_count() == 3, "Disruption creates three active balls.")
+	for active_ball in gameplay.balls.get_children():
+		var split_ball := active_ball as BreakerBall
+		_check(split_ball.speed == 150.0, "Disruption balls inherit Slow.")
+		_check(split_ball.is_piercing(), "Disruption balls inherit Thru.")
+
+	var score_before_extra := GameSession.score
+	gameplay.apply_power_up(PowerUp.PowerType.EXTRA_BALL)
+	_check(GameSession.balls_remaining == 4, "Player increments the life counter.")
+	_check(
+		GameSession.score == score_before_extra + Gameplay.POWER_UP_SCORE,
+		"Every collected power-up awards 100 points."
+	)
+	_check(
+		gameplay.get_active_power_ups().size() == 6,
+		"Immediate Player leaves all six complementary effects active."
+	)
+
+	var lost_ball := gameplay.balls.get_child(1) as BreakerBall
+	gameplay._on_death_zone_body_entered(lost_ball)
+	await get_tree().process_frame
+	_check(gameplay.balls.get_child_count() == 2, "Losing one split ball keeps play active.")
+	_check(GameSession.balls_remaining == 4, "A partial split-ball loss costs no life.")
+	_check(
+		gameplay.has_active_power_up(PowerUp.PowerType.MULTI),
+		"Disruption remains active while another split ball survives."
+	)
+	gameplay.apply_power_up(PowerUp.PowerType.MULTI)
+	await get_tree().process_frame
+	_check(
+		gameplay.balls.get_child_count() == 2,
+		"Collecting duplicate Disruption does not refill a lost split ball."
+	)
+
+	var second_lost_ball := gameplay.balls.get_child(1) as BreakerBall
+	gameplay._on_death_zone_body_entered(second_lost_ball)
+	await get_tree().process_frame
+	_check(gameplay.balls.get_child_count() == 1, "A second split-ball loss leaves one ball.")
+	_check(
+		not gameplay.has_active_power_up(PowerUp.PowerType.MULTI),
+		"Disruption ends naturally when only one ball remains."
+	)
+	_check(
+		gameplay.get_active_power_ups().size() == 5,
+		"Disruption ending preserves every other complementary effect."
+	)
+	_check(gameplay.ball.speed == 150.0, "Slow survives the end of Disruption.")
+	_check(gameplay.ball.is_piercing(), "Thru survives the end of Disruption.")
+	_check(
+		gameplay.paddle.catch_enabled
+		and gameplay.paddle.laser_enabled
+		and gameplay.paddle.paddle_width == 56.0,
+		"Wide, Catch, and Laser survive the end of Disruption."
+	)
 
 	var laser_target: Brick
 	for child in gameplay.level.bricks.get_children():
@@ -1337,6 +1809,31 @@ func _test_power_up_effects() -> void:
 		"Laser shots damage and destroy destructible bricks."
 	)
 
+	gameplay.ball.reset_for_serve(gameplay.paddle)
+	gameplay._apply_active_ball_effects(gameplay.ball)
+	await get_tree().process_frame
+
+	var bricks_before_thru := gameplay.level.get_brick_count()
+	gameplay.ball.global_position = Vector2(50, 52)
+	gameplay.ball.launch_in_direction(Vector2.RIGHT)
+	for physics_step in range(35):
+		await get_tree().physics_frame
+	await get_tree().process_frame
+	_check(
+		gameplay.level.get_brick_count() <= bricks_before_thru - 4,
+		"Thru destroys several colored bricks in one traversal (%d removed)."
+		% (bricks_before_thru - gameplay.level.get_brick_count())
+	)
+	_check(
+		gameplay.ball.velocity.x > 0.0,
+		"Thru keeps traveling forward through destructible bricks."
+	)
+
+	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
+	await get_tree().process_frame
+	_check(gameplay.ball.is_piercing(), "Collecting duplicate Wide does not clear Thru.")
+	_check(gameplay.paddle.laser_enabled, "Collecting duplicate Wide does not clear Laser.")
+
 	var break_requested := [false]
 	gameplay.stage_clear_requested.connect(
 		func() -> void:
@@ -1346,6 +1843,17 @@ func _test_power_up_effects() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_check(break_requested[0], "Break immediately requests the next stage.")
+	_check(gameplay.get_active_power_ups().is_empty(), "Stage clear removes all active effects.")
+	_check(not gameplay.ball.is_piercing(), "Stage clear removes Thru piercing.")
+	_check(gameplay.ball.speed == BreakerBall.BASE_SPEED, "Stage clear removes Slow.")
+	_check(
+		gameplay.paddle.paddle_width == PaddleController.STANDARD_WIDTH,
+		"Stage clear removes Wide."
+	)
+	_check(
+		not gameplay.paddle.catch_enabled and not gameplay.paddle.laser_enabled,
+		"Stage clear removes Catch and Laser."
+	)
 
 	for active_ball in gameplay._get_balls():
 		active_ball.deactivate()
@@ -1370,6 +1878,7 @@ func _test_life_loss_preserves_round() -> void:
 	await get_tree().process_frame
 
 	var level_id := gameplay.level.get_instance_id()
+	var drop_director_id := gameplay._drop_director.get_instance_id()
 	var silver_brick: Brick
 	var regular_brick: Brick
 	for child in gameplay.level.bricks.get_children():
@@ -1397,6 +1906,11 @@ func _test_life_loss_preserves_round() -> void:
 	gameplay.power_ups.add_child(falling_chip)
 	falling_chip.global_position = Vector2(80, 160)
 	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
+	gameplay.apply_power_up(PowerUp.PowerType.SLOW)
+	gameplay.apply_power_up(PowerUp.PowerType.CATCH)
+	gameplay.apply_power_up(PowerUp.PowerType.LASER)
+	gameplay.apply_power_up(PowerUp.PowerType.THRU)
+	preserved_score = GameSession.score
 	gameplay.ball.launch()
 	gameplay._on_death_zone_body_entered(gameplay.ball)
 	await get_tree().process_frame
@@ -1408,6 +1922,10 @@ func _test_life_loss_preserves_round() -> void:
 		"Life loss keeps the same level instance."
 	)
 	_check(
+		gameplay._drop_director.get_instance_id() == drop_director_id,
+		"Life loss preserves capsule budget and pity state."
+	)
+	_check(
 		gameplay.level.get_brick_count() == remaining_bricks,
 		"Destroyed bricks stay destroyed after life loss."
 	)
@@ -1416,11 +1934,16 @@ func _test_life_loss_preserves_round() -> void:
 		and silver_brick.hit_points == silver_starting_hits - 1,
 		"Damaged Silver keeps its remaining hit points."
 	)
-	_check(GameSession.score == preserved_score + Gameplay.POWER_UP_SCORE, "Score persists after life loss.")
+	_check(GameSession.score == preserved_score, "Score persists after life loss.")
 	_check(GameSession.balls_remaining == 2, "Life loss consumes exactly one ball.")
 	_check(gameplay.paddle.paddle_width == 40.0, "Life loss resets Wide.")
 	_check(gameplay.ball.speed == BreakerBall.BASE_SPEED, "Life loss resets Slow speed.")
-	_check(gameplay.get_active_power_up() == -1, "Life loss clears the active power-up.")
+	_check(not gameplay.ball.is_piercing(), "Life loss resets Thru.")
+	_check(
+		not gameplay.paddle.catch_enabled and not gameplay.paddle.laser_enabled,
+		"Life loss resets Catch and Laser."
+	)
+	_check(gameplay.get_active_power_ups().is_empty(), "Life loss clears all active effects.")
 	_check(gameplay.power_ups.get_child_count() == 0, "Life loss clears falling chips.")
 	_check(not gameplay.ball.is_active(), "Life loss docks a fresh serve.")
 	_check(gameplay.ball.global_position == Vector2(128, 212), "The serve resets above center paddle.")
@@ -1444,7 +1967,7 @@ func _test_deferred_pickup_transition_guard() -> void:
 	await get_tree().process_frame
 
 	_check(
-		gameplay.get_active_power_up() == -1,
+		gameplay.get_active_power_ups().is_empty(),
 		"A same-frame pickup cannot survive life-loss reset."
 	)
 	_check(
@@ -1565,13 +2088,48 @@ func _brick_at(level: Level01, position: Vector2) -> Brick:
 	return null
 
 
-func _find_power_up_brick(level: Level01, power_type: int) -> Brick:
-	for child in level.bricks.get_children():
-		var brick := child as Brick
-		if brick.power_up_type == power_type:
-			return brick
+func _simulate_capsule_stage(
+	run_seed: int,
+	stage_number: int,
+	destructible_brick_count: int,
+	starter_pool_pending: bool
+) -> Dictionary:
+	var director := CapsuleDropDirector.new(
+		run_seed,
+		stage_number,
+		destructible_brick_count,
+		starter_pool_pending
+	)
+	var positions: Array[int] = []
+	var types: Array[int] = []
+	for break_number in range(1, destructible_brick_count + 1):
+		var snapshot := CapsuleDropDirector.DropSnapshot.new(
+			destructible_brick_count - break_number,
+			0,
+			0,
+			GameSessionState.STARTING_BALLS,
+			1
+		)
+		var power_type := director.on_brick_destroyed(snapshot)
+		if power_type < 0:
+			continue
+		positions.append(break_number)
+		types.append(power_type)
 
-	return null
+	return {
+		"positions": positions,
+		"types": types,
+	}
+
+
+func _get_destructible_layout_count(stage_number: int) -> int:
+	var count := 0
+	for row in LevelCatalog.get_layout(stage_number):
+		for character in row:
+			if character != " " and character != "X":
+				count += 1
+	return count
+
 
 func _check(condition: bool, message: String) -> void:
 	if condition:

@@ -13,6 +13,7 @@ const BLUE := Color("#287fc4")
 
 
 func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	queue_redraw()
 
 
@@ -30,9 +31,9 @@ func _draw() -> void:
 	PixelFont.draw_centered(self, "SCORE", 118, WHITE)
 	PixelFont.draw_centered(self, "%06d" % GameSession.score, 128, YELLOW)
 	var prompt := (
-		"PRESS FIRE FOR MENU"
+		"TAP OR FIRE FOR MENU"
 		if GameSession.level >= LevelCatalog.STAGE_COUNT
-		else "PRESS FIRE TO CONTINUE"
+		else "TAP OR FIRE TO CONTINUE"
 	)
 	PixelFont.draw_centered(self, prompt, 154, CYAN)
 
@@ -40,4 +41,10 @@ func _draw() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("restart") or event.is_action_pressed("launch"):
 		get_viewport().set_input_as_handled()
+		replay_requested.emit()
+
+
+func _gui_input(event: InputEvent) -> void:
+	if GamePointer.is_primary_press(event):
+		accept_event()
 		replay_requested.emit()
