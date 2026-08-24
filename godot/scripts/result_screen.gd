@@ -159,20 +159,20 @@ func _prepare_share_image() -> void:
 
 func _update_score_status() -> void:
 	if Leaderboard.has_pending_submission(GameSession.run_id):
-		_score_status = "SCORE SYNCING"
+		_score_status = "SENDING TO HIGH SCORES"
 	elif (
 		GameSession.run_start_stage == 1
 		and PlayerProfile.has_player_name()
 	):
-		_score_status = "SCORE ONLINE"
+		_score_status = "ADDED TO HIGH SCORES"
 	else:
-		_score_status = "LOCAL SCORE"
+		_score_status = "SAVED ON THIS DEVICE"
 
 
 func _on_score_submitted(run_id: String, _created: bool) -> void:
 	if run_id != GameSession.run_id:
 		return
-	_score_status = "SCORE ONLINE"
+	_score_status = "ADDED TO HIGH SCORES"
 	queue_redraw()
 	call_deferred("_prepare_share_image")
 
@@ -180,7 +180,11 @@ func _on_score_submitted(run_id: String, _created: bool) -> void:
 func _on_submission_failed(run_id: String, _message: String) -> void:
 	if run_id != GameSession.run_id:
 		return
-	_score_status = "SCORE SAVED LOCALLY"
+	_score_status = (
+		"SAVED HERE - WILL RETRY"
+		if Leaderboard.has_pending_submission(run_id)
+		else "SAVED ON THIS DEVICE"
+	)
 	queue_redraw()
 	call_deferred("_prepare_share_image")
 
