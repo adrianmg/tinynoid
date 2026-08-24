@@ -18,7 +18,7 @@ const RECENT_SCORE_Y := 174
 const SUBTITLE := "A TINY ARKANOID TRIBUTE BY @ADRIANMG"
 const INSTRUCTION_LINES := [
 	"Arrow keys to move & select",
-	"Enter / Spacebar to select",
+	"Enter / Space / tap to select",
 	"ESC to quit",
 ]
 
@@ -123,11 +123,7 @@ func _gui_input(event: InputEvent) -> void:
 			_selected_index = hovered_option
 			UiAudio.play_move()
 			queue_redraw()
-	elif (
-		event is InputEventMouseButton
-		and event.button_index == MOUSE_BUTTON_LEFT
-		and event.pressed
-	):
+	elif GamePointer.is_primary_press(event):
 		var clicked_option := _get_option_at(event.position)
 		if clicked_option >= 0:
 			_selected_index = clicked_option

@@ -20,6 +20,7 @@ var _entries: Array[Dictionary] = []
 var _state := Leaderboard.STATE_LOADING
 var _selected_index := 0
 var _scroll_offset := 0
+var _touch_scroll_remainder := 0.0
 
 
 func _ready() -> void:
@@ -89,27 +90,36 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion:
+	if event is InputEventScreenDrag and event.index == 0:
+		_touch_scroll_remainder -= event.relative.y
+		while absf(_touch_scroll_remainder) >= ROW_HEIGHT:
+			var direction := signi(_touch_scroll_remainder)
+			_select_relative(direction)
+			_touch_scroll_remainder -= direction * ROW_HEIGHT
+		accept_event()
+	elif event is InputEventMouseMotion:
 		var row := _get_row_at(event.position)
 		if row >= 0 and row != _selected_index:
 			_selected_index = row
 			_ensure_selected_visible()
 			UiAudio.play_move()
 			queue_redraw()
-	elif event is InputEventMouseButton and event.pressed:
-		if (
-			event.button_index == MOUSE_BUTTON_LEFT
-			and BACK_RECT.has_point(event.position)
-		):
+	elif GamePointer.is_primary_press(event):
+		if BACK_RECT.has_point(event.position):
 			accept_event()
 			back_requested.emit()
-		elif (
-			event.button_index == MOUSE_BUTTON_LEFT
-			and ATTRIBUTION_RECT.has_point(event.position)
-		):
+		elif ATTRIBUTION_RECT.has_point(event.position):
 			accept_event()
 			OS.shell_open("https://unavatar.io")
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		else:
+			var row := _get_row_at(event.position)
+			if row >= 0:
+				_selected_index = row
+				_ensure_selected_visible()
+				accept_event()
+				queue_redraw()
+	elif event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_select_relative(-1)
 			accept_event()
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:

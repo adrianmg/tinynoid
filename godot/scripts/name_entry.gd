@@ -165,11 +165,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		_select_at(event.position)
-	elif (
-		event is InputEventMouseButton
-		and event.button_index == MOUSE_BUTTON_LEFT
-		and event.pressed
-	):
+	elif GamePointer.is_primary_press(event):
 		if _select_at(event.position):
 			UiAudio.play_confirm()
 			accept_event()

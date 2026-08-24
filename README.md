@@ -28,9 +28,9 @@ main scene.
 
 ### Controls
 
-- **Move:** Arrow keys, A/D, mouse, or controller stick
-- **Launch / Select:** Spacebar, Enter, mouse button, or controller face button
-- **Menus / High Scores:** Arrow keys, mouse, or controller
+- **Move:** Arrow keys, A/D, mouse, touch drag, or controller stick
+- **Launch / Select:** Spacebar, Enter, click, tap, or controller face button
+- **Menus / High Scores:** Arrow keys, click, tap, or controller
 - **Restart stage:** R
 - **Return to menu:** Escape
 - **Window size:** F2 for 2×, F3 for 3×
@@ -40,6 +40,7 @@ main scene.
 
 - 33 original stages
 - Eight capsules: Expand, Slow, Disruption, Catch, Laser, Break, Player, and Thru
+- Compatible capsule effects stack together until life loss or stage clear
 - Protected random drops reward the opening and prevent long dry streaks
 - Global Top 100 scores with offline local history
 - Post-game X/Twitter handles and palette-pixelated profile avatars

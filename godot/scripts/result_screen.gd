@@ -105,11 +105,7 @@ func _gui_input(event: InputEvent) -> void:
 			_selected_index = hovered
 			UiAudio.play_move()
 			queue_redraw()
-	elif (
-		event is InputEventMouseButton
-		and event.button_index == MOUSE_BUTTON_LEFT
-		and event.pressed
-	):
+	elif GamePointer.is_primary_press(event):
 		var clicked := _get_option_at(event.position)
 		if clicked >= 0:
 			_selected_index = clicked

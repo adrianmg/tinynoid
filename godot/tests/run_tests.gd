@@ -25,6 +25,18 @@ func _ready() -> void:
 
 
 func _run() -> void:
+	if "--ball-physics-only" in OS.get_cmdline_user_args():
+		await _test_ball_direction_invariant()
+		await _test_thru_physics()
+		await _test_paddle_bounce_angles()
+		await _test_physics_signal_wiring()
+		await _test_paddle_wall_edge_escape()
+		await _test_power_up_effects()
+		await _test_wall_collision()
+		await _test_brick_collision_flow()
+		await _finish("Ball physics tests")
+		return
+
 	await _test_pixel_perfect_settings()
 	await _test_generated_music()
 	await _test_streaming_music_preview()
@@ -33,6 +45,7 @@ func _run() -> void:
 	await _test_display_modes()
 	await _test_main_menu()
 	await _test_name_entry_and_high_scores()
+	await _test_touch_controls()
 	await _test_campaign_routing()
 	await _test_game_session()
 	await _test_player_profile()
@@ -46,6 +59,7 @@ func _run() -> void:
 	await _test_level_content()
 	await _test_brick_scores_once()
 	await _test_paddle_bounce_angles()
+	await _test_ball_direction_invariant()
 	await _test_ball_launch()
 	await _test_brick_break_effect()
 	await _test_brick_audio_pitch()
@@ -63,10 +77,14 @@ func _run() -> void:
 	await _test_wall_collision()
 	await _test_brick_collision_flow()
 
+	await _finish("All Godot port tests")
+
+
+func _finish(suite_name: String) -> void:
 	if _failures == 0:
-		print("All Godot port tests passed.")
+		print("%s passed." % suite_name)
 	else:
-		push_error("%d Godot port test(s) failed." % _failures)
+		push_error("%d %s failed." % [_failures, suite_name.to_lower()])
 
 	MusicController.shutdown()
 	await get_tree().process_frame
@@ -339,6 +357,7 @@ func _test_display_modes() -> void:
 func _test_main_menu() -> void:
 	AudioSettings.set_level(3)
 
+	GameSession.new_game(1, 8080)
 	var menu: MainMenu = MAIN_MENU_SCENE.instantiate()
 	var start_requested := [-1]
 	var high_scores_requested := [false]
@@ -360,10 +379,10 @@ func _test_main_menu() -> void:
 	_check(
 		MainMenu.INSTRUCTION_LINES == [
 			"Arrow keys to move & select",
-			"Enter / Spacebar to select",
+			"Enter / Space / tap to select",
 			"ESC to quit",
 		],
-		"The menu carries only the requested keyboard instructions."
+		"The menu advertises keyboard and touch selection."
 	)
 	_check(PixelFont.GLYPHS.has("."), "The bitmap font supports the domain period.")
 	_check(PixelFont.GLYPHS.has("/"), "The bitmap font supports the instruction slash.")
@@ -627,6 +646,139 @@ func _test_name_entry_and_high_scores() -> void:
 	await get_tree().process_frame
 
 
+func _test_touch_controls() -> void:
+	_check(
+		not ProjectSettings.get_setting(
+			"input_devices/pointing/emulate_mouse_from_touch",
+			true
+		),
+		"Touch is handled explicitly without duplicate emulated mouse clicks."
+	)
+
+	var tap := InputEventScreenTouch.new()
+	tap.index = 0
+	tap.position = Vector2(128, 86)
+	tap.pressed = true
+	var second_touch := InputEventScreenTouch.new()
+	second_touch.index = 1
+	second_touch.position = Vector2(128, 86)
+	second_touch.pressed = true
+	_check(GamePointer.is_primary_press(tap), "A primary tap maps to a pointer press.")
+	_check(
+		not GamePointer.is_primary_press(second_touch),
+		"Secondary touches do not trigger duplicate actions."
+	)
+
+	GameSession.new_game(1, 8080)
+	var menu: MainMenu = MAIN_MENU_SCENE.instantiate()
+	var tapped_stage := [-1]
+	menu.start_requested.connect(
+		func(stage_number: int) -> void:
+			tapped_stage[0] = stage_number
+	)
+	get_tree().root.add_child(menu)
+	await get_tree().process_frame
+	menu._gui_input(tap)
+	_check(tapped_stage[0] == 1, "Tapping Play activates the selected stage.")
+	menu.queue_free()
+	await get_tree().process_frame
+
+	var touch_scores: HighScoresScreen = HIGH_SCORES_SCENE.instantiate()
+	get_tree().root.add_child(touch_scores)
+	await get_tree().process_frame
+	var touch_entries: Array[Dictionary] = []
+	for entry_index in range(20):
+		touch_entries.append({
+			"rank": entry_index + 1,
+			"player_name": "@PLAYER%d" % entry_index,
+			"score": 20000 - entry_index,
+			"completed_stage": 3,
+		})
+	touch_scores.call(
+		"_on_top_scores_updated",
+		Leaderboard.STATE_READY,
+		touch_entries,
+		"2026-08-24T00:00:00"
+	)
+	var score_drag := InputEventScreenDrag.new()
+	score_drag.index = 0
+	score_drag.position = Vector2(128, 140)
+	score_drag.relative = Vector2(0, -20)
+	touch_scores._gui_input(score_drag)
+	_check(
+		touch_scores.get_selected_index() == 2,
+		"Swiping the Top 100 advances touch selection."
+	)
+	touch_scores.queue_free()
+	await get_tree().process_frame
+
+	GameSession.new_game(1, 8080)
+	var gameplay: Gameplay = GAMEPLAY_SCENE.instantiate()
+	get_tree().root.add_child(gameplay)
+	await get_tree().process_frame
+
+	tap.position = Vector2(196, 200)
+	gameplay.paddle._input(tap)
+	gameplay._unhandled_input(tap)
+	for physics_step in range(2):
+		await get_tree().physics_frame
+	_check(gameplay.ball.is_active(), "A gameplay tap launches the held ball.")
+	_check(
+		is_equal_approx(gameplay.paddle.global_position.x, 196.0),
+		"A gameplay tap moves the paddle to the touch position."
+	)
+
+	var drag := InputEventScreenDrag.new()
+	drag.index = 0
+	drag.position = Vector2(72, 200)
+	gameplay.paddle._input(drag)
+	await get_tree().physics_frame
+	_check(
+		is_equal_approx(gameplay.paddle.global_position.x, 72.0),
+		"Dragging a primary touch steers the paddle."
+	)
+
+	gameplay.apply_power_up(PowerUp.PowerType.LASER)
+	tap.position = Vector2(128, 200)
+	gameplay._unhandled_input(tap)
+	_check(gameplay.lasers.get_child_count() == 2, "A tap fires an equipped Laser.")
+	for active_ball in gameplay._get_balls():
+		active_ball.deactivate()
+	gameplay.queue_free()
+	await get_tree().process_frame
+
+	var game_over: GameOverScreen = GAME_OVER_SCENE.instantiate()
+	var retry_requested := [false]
+	game_over.new_game_requested.connect(func() -> void: retry_requested[0] = true)
+	get_tree().root.add_child(game_over)
+	await get_tree().process_frame
+	tap.position = Vector2(128, 151)
+	tap.pressed = true
+	Input.parse_input_event(tap)
+	await get_tree().process_frame
+	_check(retry_requested[0], "A tap retries from Game Over.")
+	tap.pressed = false
+	Input.parse_input_event(tap)
+	game_over.queue_free()
+	await get_tree().process_frame
+
+	var stage_clear: StageClearScreen = STAGE_CLEAR_SCENE.instantiate()
+	var continue_requested := [false]
+	stage_clear.replay_requested.connect(func() -> void: continue_requested[0] = true)
+	get_tree().root.add_child(stage_clear)
+	await get_tree().process_frame
+	tap.position = Vector2(128, 151)
+	tap.pressed = true
+	Input.parse_input_event(tap)
+	await get_tree().process_frame
+	_check(continue_requested[0], "A tap continues from Stage Clear.")
+	tap.pressed = false
+	Input.parse_input_event(tap)
+	stage_clear.queue_free()
+	await get_tree().process_frame
+	GameSession.new_game()
+
+
 func _test_campaign_routing() -> void:
 	var main := MAIN_SCENE.instantiate()
 	get_tree().root.add_child(main)
@@ -637,6 +789,8 @@ func _test_campaign_routing() -> void:
 	_check(GameSession.level == 32, "Campaign routing starts a selected late stage.")
 	_check(MusicController.get_current_track_id() == 32, "Stage 32 uses song 32.")
 	var stage_32_stream_id := MusicController.get_stream().get_instance_id()
+	GameSession.register_ball_lost()
+	_check(GameSession.balls_remaining == 2, "The campaign can reach Stage Clear with two lives.")
 	main.call(&"_show_gameplay")
 	await get_tree().process_frame
 	_check(
@@ -647,6 +801,10 @@ func _test_campaign_routing() -> void:
 	main.call(&"_continue_campaign")
 	await get_tree().process_frame
 	_check(GameSession.level == 33, "Clearing stage 32 advances to stage 33.")
+	_check(
+		GameSession.balls_remaining == 2,
+		"Advancing after Stage Clear preserves the current life count."
+	)
 	_check(MusicController.get_current_track_id() == 33, "Stage 33 switches to song 33.")
 	_check(
 		main.find_child("Gameplay", true, false) != null,
@@ -698,8 +856,10 @@ func _test_game_session() -> void:
 		and not local_only_result.eligible,
 		"Later-stage runs still produce a local result."
 	)
+	session.add_ball()
 	session.advance_level()
 	_check(session.level == 18, "Campaign progression advances one stage.")
+	_check(session.balls_remaining == 4, "Campaign progression preserves earned lives.")
 	_check(session.run_seed == selected_stage_seed, "Campaign progression keeps the run seed.")
 	_check(
 		not session.starter_capsule_pending,
@@ -948,7 +1108,7 @@ func _test_capsule_drop_director() -> void:
 		var blocked_snapshot := CapsuleDropDirector.DropSnapshot.new(
 			64 - break_number,
 			CapsuleDropDirector.MAX_FALLING_CAPSULES,
-			-1,
+			0,
 			3,
 			1
 		)
@@ -966,7 +1126,7 @@ func _test_capsule_drop_director() -> void:
 		var resumed_snapshot := CapsuleDropDirector.DropSnapshot.new(
 			64 - break_number,
 			0,
-			-1,
+			0,
 			3,
 			1
 		)
@@ -984,18 +1144,95 @@ func _test_capsule_drop_director() -> void:
 		var active_filter_snapshot := CapsuleDropDirector.DropSnapshot.new(
 			40 - break_number,
 			0,
-			PowerUp.PowerType.WIDE,
+			(1 << PowerUp.PowerType.WIDE) | (1 << PowerUp.PowerType.LASER),
 			3,
 			1
 		)
 		var filtered_type := active_filter_director.on_brick_destroyed(
 			active_filter_snapshot
 		)
-		if filtered_type == PowerUp.PowerType.WIDE:
+		if filtered_type in [
+			PowerUp.PowerType.WIDE,
+			PowerUp.PowerType.LASER,
+		]:
 			active_filter_violations += 1
 	_check(
 		active_filter_violations == 0,
-		"The active capsule type is excluded from random selection."
+		"All active capsule types are excluded from random selection."
+	)
+
+	var starter_mask := (
+		(1 << PowerUp.PowerType.WIDE)
+		| (1 << PowerUp.PowerType.SLOW)
+		| (1 << PowerUp.PowerType.MULTI)
+	)
+	var blocked_starter_director := CapsuleDropDirector.new(29, 1, 64, true)
+	var blocked_starter_drops := 0
+	for break_number in range(1, 13):
+		var blocked_starter_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			64 - break_number,
+			0,
+			starter_mask,
+			3,
+			1
+		)
+		if blocked_starter_director.on_brick_destroyed(blocked_starter_snapshot) >= 0:
+			blocked_starter_drops += 1
+	_check(
+		blocked_starter_drops == 0,
+		"The beginner pool waits while all starter effects are active."
+	)
+	var resumed_starter := blocked_starter_director.on_brick_destroyed(
+		CapsuleDropDirector.DropSnapshot.new(51, 0, 0, 3, 1)
+	)
+	_check(
+		resumed_starter in [
+			PowerUp.PowerType.WIDE,
+			PowerUp.PowerType.SLOW,
+			PowerUp.PowerType.MULTI,
+		],
+		"The guaranteed beginner drop resumes when a starter effect becomes useful."
+	)
+
+	var all_persistent_mask := 0
+	for active_type in [
+		PowerUp.PowerType.WIDE,
+		PowerUp.PowerType.SLOW,
+		PowerUp.PowerType.MULTI,
+		PowerUp.PowerType.CATCH,
+		PowerUp.PowerType.LASER,
+		PowerUp.PowerType.THRU,
+	]:
+		all_persistent_mask |= 1 << active_type
+	var exhausted_pool_director := CapsuleDropDirector.new(19, 1, 64, false)
+	var exhausted_pool_types: Array[int] = []
+	var exhausted_pool_positions: Array[int] = []
+	for break_number in range(1, 41):
+		var exhausted_snapshot := CapsuleDropDirector.DropSnapshot.new(
+			64 - break_number,
+			0,
+			all_persistent_mask,
+			3,
+			1
+		)
+		var exhausted_type := exhausted_pool_director.on_brick_destroyed(
+			exhausted_snapshot
+		)
+		if exhausted_type >= 0:
+			exhausted_pool_types.append(exhausted_type)
+			exhausted_pool_positions.append(break_number)
+			if exhausted_pool_types.size() == 2:
+				break
+	_check(
+		exhausted_pool_types == [
+			PowerUp.PowerType.EXTRA_BALL,
+			PowerUp.PowerType.BREAK,
+		],
+		"An exhausted type pool waits for the next useful capsule."
+	)
+	_check(
+		exhausted_pool_positions[1] == 32,
+		"Pity remains guaranteed when Break becomes eligible."
 	)
 
 	var total_stage_runs := 0
@@ -1115,7 +1352,7 @@ func _test_dynamic_power_up_flow() -> void:
 		"Collecting a dynamic capsule awards 100 points."
 	)
 	_check(
-		gameplay.get_active_power_up() == collected_type,
+		gameplay.has_active_power_up(collected_type),
 		"The dynamically selected capsule applies its gameplay effect."
 	)
 
@@ -1254,6 +1491,7 @@ func _test_thru_physics() -> void:
 		"Thru damages Silver once per pass (remaining hits: %d)." % silver_brick.hit_points
 	)
 	_check(silver_ball.velocity.x > 0.0, "Thru does not bounce off Silver.")
+	_check_ball_motion_invariant(silver_ball, "Thru Silver pass")
 	silver_world.queue_free()
 	await get_tree().process_frame
 
@@ -1275,6 +1513,7 @@ func _test_thru_physics() -> void:
 		await get_tree().physics_frame
 	_check(is_instance_valid(gold_brick), "Thru never destroys Gold.")
 	_check(gold_ball.velocity.x < 0.0, "Gold remains solid while Thru is active.")
+	_check_ball_motion_invariant(gold_ball, "Thru Gold collision")
 	gold_world.queue_free()
 	await get_tree().process_frame
 
@@ -1451,6 +1690,63 @@ func _test_paddle_bounce_angles() -> void:
 	)
 
 	paddle.queue_free()
+	await get_tree().process_frame
+
+
+func _test_ball_direction_invariant() -> void:
+	var world := Node2D.new()
+	var unsafe_up: BreakerBall = BALL_SCENE.instantiate()
+	var unsafe_down: BreakerBall = BALL_SCENE.instantiate()
+	var safe_ball: BreakerBall = BALL_SCENE.instantiate()
+	var horizontal_ball: BreakerBall = BALL_SCENE.instantiate()
+	world.add_child(unsafe_up)
+	world.add_child(unsafe_down)
+	world.add_child(safe_ball)
+	world.add_child(horizontal_ball)
+	get_tree().root.add_child(world)
+	await get_tree().process_frame
+
+	unsafe_up.launch_in_direction(Vector2(1.0, -0.01))
+	unsafe_down.launch_in_direction(Vector2(1.0, 0.01))
+	safe_ball.launch_in_direction(Vector2(0.8, -0.6))
+	horizontal_ball.launch_in_direction(Vector2.RIGHT)
+
+	var upward_direction := unsafe_up.velocity.normalized()
+	var downward_direction := unsafe_down.velocity.normalized()
+	_check(
+		is_equal_approx(
+			absf(upward_direction.y),
+			BreakerBall.MIN_VERTICAL_COMPONENT
+		),
+		"An unsafe upward trajectory receives the minimum vertical component."
+	)
+	_check(
+		is_equal_approx(upward_direction.y, -downward_direction.y)
+		and is_equal_approx(upward_direction.x, downward_direction.x),
+		"Minimum-angle correction is symmetrical upward and downward."
+	)
+	_check(
+		upward_direction.x > 0.0
+		and upward_direction.y < 0.0
+		and downward_direction.y > 0.0,
+		"Minimum-angle correction preserves horizontal and vertical signs."
+	)
+	_check(
+		safe_ball.velocity.normalized().is_equal_approx(Vector2(0.8, -0.6)),
+		"Already-safe normalized trajectories remain unchanged."
+	)
+	_check(
+		horizontal_ball.velocity.x > 0.0
+		and is_equal_approx(
+			horizontal_ball.velocity.normalized().y,
+			-BreakerBall.MIN_VERTICAL_COMPONENT
+		),
+		"An exactly horizontal launch deterministically escapes upward."
+	)
+	_check_ball_motion_invariant(unsafe_up, "Corrected upward launch")
+	_check_ball_motion_invariant(unsafe_down, "Corrected downward launch")
+
+	world.queue_free()
 	await get_tree().process_frame
 
 
@@ -1651,10 +1947,14 @@ func _test_gameplay_scene() -> void:
 	_check(gameplay.paddle.global_position == Vector2(128, 220), "The paddle starts centered.")
 	_check(gameplay.hud.is_launch_ready(), "The HUD initially shows the launch cue.")
 	_check(
-		RetroHud.LAUNCH_PROMPT == "Press spacebar to fire the ball",
-		"The launch advice names the Spacebar action."
+		RetroHud.LAUNCH_PROMPT == "Press SPACEBAR or tap to fire",
+		"The launch advice names keyboard and touch actions."
 	)
-	gameplay.ball.launch()
+	var launch_event := InputEventAction.new()
+	launch_event.action = "launch"
+	launch_event.pressed = true
+	gameplay._unhandled_input(launch_event)
+	_check(gameplay.ball.is_active(), "The Gameplay input seam launches a held ball.")
 	_check(not gameplay.hud.is_launch_ready(), "The launch cue clears when the ball launches.")
 
 	gameplay.queue_free()
@@ -1701,6 +2001,10 @@ func _test_physics_signal_wiring() -> void:
 	_check(
 		paddle_gameplay.ball.velocity.y < 0.0,
 		"A real physics collision bounces the ball upward from the paddle."
+	)
+	_check_ball_motion_invariant(
+		paddle_gameplay.ball,
+		"Real paddle collision"
 	)
 	_check(
 		GameSession.balls_remaining == 3,
@@ -1775,6 +2079,7 @@ func _test_paddle_wall_edge_escape() -> void:
 		),
 		"The edge escape preserves constant ball speed."
 	)
+	_check_ball_motion_invariant(gameplay.ball, "Paddle-wall edge escape")
 
 	gameplay.ball.deactivate()
 	gameplay.queue_free()
@@ -1819,7 +2124,7 @@ func _test_power_up_effects() -> void:
 	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
 	_check(gameplay.paddle.paddle_width == 56.0, "Wide enlarges the paddle.")
 	_check(
-		gameplay.get_active_power_up() == PowerUp.PowerType.WIDE,
+		gameplay.has_active_power_up(PowerUp.PowerType.WIDE),
 		"Wide remains active after collection."
 	)
 	await get_tree().create_timer(0.1).timeout
@@ -1831,61 +2136,22 @@ func _test_power_up_effects() -> void:
 	gameplay.ball.launch()
 	gameplay.apply_power_up(PowerUp.PowerType.SLOW)
 	_check(gameplay.ball.speed == 150.0, "Slow reduces ball speed to 150 pixels per second.")
-	_check(gameplay.paddle.paddle_width == 40.0, "Slow replaces the prior Wide effect.")
 	_check(
-		gameplay.get_active_power_up() == PowerUp.PowerType.SLOW,
-		"Only Slow remains active after replacement."
-	)
-
-	gameplay.apply_power_up(PowerUp.PowerType.MULTI)
-	_check(gameplay.balls.get_child_count() == 3, "Multi-ball creates three active balls.")
-	for active_ball in gameplay.balls.get_children():
-		_check(
-			(active_ball as BreakerBall).speed == 200.0,
-			"Multi-ball replaces Slow and restores base speed."
-		)
-
-	var score_before_extra := GameSession.score
-	gameplay.apply_power_up(PowerUp.PowerType.EXTRA_BALL)
-	_check(GameSession.balls_remaining == 4, "Extra Ball increments the session counter.")
-	_check(
-		GameSession.score == score_before_extra + Gameplay.POWER_UP_SCORE,
-		"Every collected power-up awards 100 points."
+		gameplay.paddle.paddle_width == 56.0,
+		"Slow complements Wide instead of replacing it."
 	)
 	_check(
-		gameplay.get_active_power_up() == PowerUp.PowerType.MULTI,
-		"Instant Extra Ball does not replace the active temporary effect."
+		gameplay.has_active_power_up(PowerUp.PowerType.WIDE)
+		and gameplay.has_active_power_up(PowerUp.PowerType.SLOW),
+		"Wide and Slow remain active together."
 	)
-
-	var lost_ball := gameplay.balls.get_child(1) as BreakerBall
-	gameplay._on_death_zone_body_entered(lost_ball)
-	await get_tree().process_frame
-	_check(gameplay.balls.get_child_count() == 2, "Losing one multi-ball keeps play active.")
-	_check(GameSession.balls_remaining == 4, "A partial multi-ball loss costs no life.")
-	_check(
-		gameplay.get_active_power_up() == PowerUp.PowerType.MULTI,
-		"Multi-ball remains active while another split ball survives."
-	)
-
-	var second_lost_ball := gameplay.balls.get_child(1) as BreakerBall
-	gameplay._on_death_zone_body_entered(second_lost_ball)
-	await get_tree().process_frame
-	_check(gameplay.balls.get_child_count() == 1, "A second split-ball loss leaves one ball.")
-	_check(
-		gameplay.get_active_power_up() == -1,
-		"Multi-ball ends naturally when only one ball remains."
-	)
-
-	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
-	await get_tree().process_frame
-	_check(gameplay.balls.get_child_count() == 1, "Wide keeps the remaining single ball.")
-	_check(gameplay.paddle.paddle_width == 56.0, "The replacement Wide effect activates.")
 
 	gameplay.apply_power_up(PowerUp.PowerType.CATCH)
 	_check(gameplay.paddle.catch_enabled, "Catch enables the paddle catch surface.")
-	_check(gameplay.paddle.paddle_width == 40.0, "Catch replaces Expand.")
+	_check(gameplay.paddle.paddle_width == 56.0, "Catch complements Wide.")
 
 	gameplay.ball.reset_for_serve(gameplay.paddle)
+	gameplay._apply_active_ball_effects(gameplay.ball)
 	gameplay.ball.global_position = Vector2(128, 208)
 	gameplay.ball.launch_in_direction(Vector2.DOWN)
 	for physics_step in range(8):
@@ -1895,22 +2161,89 @@ func _test_power_up_effects() -> void:
 		gameplay.ball.global_position == Vector2(128, 212),
 		"Catch docks the held ball above the paddle."
 	)
-	gameplay.ball.launch()
-	_check(gameplay.ball.is_active(), "FIRE releases a caught ball.")
 
 	gameplay.apply_power_up(PowerUp.PowerType.LASER)
 	_check(gameplay.paddle.laser_enabled, "Laser equips the paddle emitters.")
-	_check(not gameplay.paddle.catch_enabled, "Laser replaces Catch.")
+	_check(gameplay.paddle.catch_enabled, "Laser complements Catch.")
 	_check(
 		gameplay.hud.get_power_up_label() == Gameplay.LASER_TIP,
-		"Laser collection shows the Spacebar firing tip."
+		"Laser collection shows the keyboard and touch firing tip."
 	)
 	_check(
 		is_equal_approx(gameplay.hud.get_power_up_time_left(), 3.0),
 		"Laser usage tip remains visible for three seconds."
 	)
-	gameplay._spawn_lasers()
-	_check(gameplay.lasers.get_child_count() == 2, "Laser fires a paired shot.")
+	var fire_event := InputEventAction.new()
+	fire_event.action = "launch"
+	fire_event.pressed = true
+	gameplay._unhandled_input(fire_event)
+	_check(gameplay.ball.is_active(), "FIRE releases a caught ball while Laser is active.")
+	_check(gameplay.lasers.get_child_count() == 2, "The same FIRE press launches a paired shot.")
+	gameplay._clear_lasers()
+
+	gameplay.apply_power_up(PowerUp.PowerType.THRU)
+	await get_tree().process_frame
+	_check(gameplay.ball.is_piercing(), "Thru enables piercing on the active ball.")
+	_check(gameplay.paddle.laser_enabled, "Thru complements Laser.")
+	_check(gameplay.paddle.catch_enabled, "Thru complements Catch.")
+	_check(gameplay.paddle.paddle_width == 56.0, "Thru preserves Wide.")
+	_check(gameplay.ball.speed == 150.0, "Thru preserves Slow.")
+
+	gameplay.apply_power_up(PowerUp.PowerType.MULTI)
+	_check(gameplay.balls.get_child_count() == 3, "Disruption creates three active balls.")
+	for active_ball in gameplay.balls.get_children():
+		var split_ball := active_ball as BreakerBall
+		_check(split_ball.speed == 150.0, "Disruption balls inherit Slow.")
+		_check(split_ball.is_piercing(), "Disruption balls inherit Thru.")
+
+	var score_before_extra := GameSession.score
+	gameplay.apply_power_up(PowerUp.PowerType.EXTRA_BALL)
+	_check(GameSession.balls_remaining == 4, "Player increments the life counter.")
+	_check(
+		GameSession.score == score_before_extra + Gameplay.POWER_UP_SCORE,
+		"Every collected power-up awards 100 points."
+	)
+	_check(
+		gameplay.get_active_power_ups().size() == 6,
+		"Immediate Player leaves all six complementary effects active."
+	)
+
+	var lost_ball := gameplay.balls.get_child(1) as BreakerBall
+	gameplay._on_death_zone_body_entered(lost_ball)
+	await get_tree().process_frame
+	_check(gameplay.balls.get_child_count() == 2, "Losing one split ball keeps play active.")
+	_check(GameSession.balls_remaining == 4, "A partial split-ball loss costs no life.")
+	_check(
+		gameplay.has_active_power_up(PowerUp.PowerType.MULTI),
+		"Disruption remains active while another split ball survives."
+	)
+	gameplay.apply_power_up(PowerUp.PowerType.MULTI)
+	await get_tree().process_frame
+	_check(
+		gameplay.balls.get_child_count() == 2,
+		"Collecting duplicate Disruption does not refill a lost split ball."
+	)
+
+	var second_lost_ball := gameplay.balls.get_child(1) as BreakerBall
+	gameplay._on_death_zone_body_entered(second_lost_ball)
+	await get_tree().process_frame
+	_check(gameplay.balls.get_child_count() == 1, "A second split-ball loss leaves one ball.")
+	_check(
+		not gameplay.has_active_power_up(PowerUp.PowerType.MULTI),
+		"Disruption ends naturally when only one ball remains."
+	)
+	_check(
+		gameplay.get_active_power_ups().size() == 5,
+		"Disruption ending preserves every other complementary effect."
+	)
+	_check(gameplay.ball.speed == 150.0, "Slow survives the end of Disruption.")
+	_check(gameplay.ball.is_piercing(), "Thru survives the end of Disruption.")
+	_check(
+		gameplay.paddle.catch_enabled
+		and gameplay.paddle.laser_enabled
+		and gameplay.paddle.paddle_width == 56.0,
+		"Wide, Catch, and Laser survive the end of Disruption."
+	)
 
 	var laser_target: Brick
 	for child in gameplay.level.bricks.get_children():
@@ -1945,14 +2278,12 @@ func _test_power_up_effects() -> void:
 	)
 
 	gameplay.ball.reset_for_serve(gameplay.paddle)
-	gameplay.apply_power_up(PowerUp.PowerType.THRU)
+	gameplay._apply_active_ball_effects(gameplay.ball)
 	await get_tree().process_frame
-	_check(gameplay.ball.is_piercing(), "Thru enables piercing on the active ball.")
-	_check(not gameplay.paddle.laser_enabled, "Thru replaces Laser.")
 
 	var bricks_before_thru := gameplay.level.get_brick_count()
 	gameplay.ball.global_position = Vector2(50, 52)
-	gameplay.ball.launch_in_direction(Vector2.RIGHT)
+	gameplay.ball.launch_in_direction(Vector2(1.0, 0.625))
 	for physics_step in range(35):
 		await get_tree().physics_frame
 	await get_tree().process_frame
@@ -1968,10 +2299,8 @@ func _test_power_up_effects() -> void:
 
 	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
 	await get_tree().process_frame
-	_check(not gameplay.ball.is_piercing(), "Replacing Thru clears piercing.")
-	gameplay.apply_power_up(PowerUp.PowerType.THRU)
-	await get_tree().process_frame
-	_check(gameplay.ball.is_piercing(), "Thru can be activated again after replacement.")
+	_check(gameplay.ball.is_piercing(), "Collecting duplicate Wide does not clear Thru.")
+	_check(gameplay.paddle.laser_enabled, "Collecting duplicate Wide does not clear Laser.")
 
 	var break_requested := [false]
 	gameplay.stage_clear_requested.connect(
@@ -1982,7 +2311,17 @@ func _test_power_up_effects() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_check(break_requested[0], "Break immediately requests the next stage.")
+	_check(gameplay.get_active_power_ups().is_empty(), "Stage clear removes all active effects.")
 	_check(not gameplay.ball.is_piercing(), "Stage clear removes Thru piercing.")
+	_check(gameplay.ball.speed == BreakerBall.BASE_SPEED, "Stage clear removes Slow.")
+	_check(
+		gameplay.paddle.paddle_width == PaddleController.STANDARD_WIDTH,
+		"Stage clear removes Wide."
+	)
+	_check(
+		not gameplay.paddle.catch_enabled and not gameplay.paddle.laser_enabled,
+		"Stage clear removes Catch and Laser."
+	)
 
 	for active_ball in gameplay._get_balls():
 		active_ball.deactivate()
@@ -2035,6 +2374,11 @@ func _test_life_loss_preserves_round() -> void:
 	gameplay.power_ups.add_child(falling_chip)
 	falling_chip.global_position = Vector2(80, 160)
 	gameplay.apply_power_up(PowerUp.PowerType.WIDE)
+	gameplay.apply_power_up(PowerUp.PowerType.SLOW)
+	gameplay.apply_power_up(PowerUp.PowerType.CATCH)
+	gameplay.apply_power_up(PowerUp.PowerType.LASER)
+	gameplay.apply_power_up(PowerUp.PowerType.THRU)
+	preserved_score = GameSession.score
 	gameplay.ball.launch()
 	gameplay._on_death_zone_body_entered(gameplay.ball)
 	await get_tree().process_frame
@@ -2058,11 +2402,16 @@ func _test_life_loss_preserves_round() -> void:
 		and silver_brick.hit_points == silver_starting_hits - 1,
 		"Damaged Silver keeps its remaining hit points."
 	)
-	_check(GameSession.score == preserved_score + Gameplay.POWER_UP_SCORE, "Score persists after life loss.")
+	_check(GameSession.score == preserved_score, "Score persists after life loss.")
 	_check(GameSession.balls_remaining == 2, "Life loss consumes exactly one ball.")
 	_check(gameplay.paddle.paddle_width == 40.0, "Life loss resets Wide.")
 	_check(gameplay.ball.speed == BreakerBall.BASE_SPEED, "Life loss resets Slow speed.")
-	_check(gameplay.get_active_power_up() == -1, "Life loss clears the active power-up.")
+	_check(not gameplay.ball.is_piercing(), "Life loss resets Thru.")
+	_check(
+		not gameplay.paddle.catch_enabled and not gameplay.paddle.laser_enabled,
+		"Life loss resets Catch and Laser."
+	)
+	_check(gameplay.get_active_power_ups().is_empty(), "Life loss clears all active effects.")
 	_check(gameplay.power_ups.get_child_count() == 0, "Life loss clears falling chips.")
 	_check(not gameplay.ball.is_active(), "Life loss docks a fresh serve.")
 	_check(gameplay.ball.global_position == Vector2(128, 212), "The serve resets above center paddle.")
@@ -2086,7 +2435,7 @@ func _test_deferred_pickup_transition_guard() -> void:
 	await get_tree().process_frame
 
 	_check(
-		gameplay.get_active_power_up() == -1,
+		gameplay.get_active_power_ups().is_empty(),
 		"A same-frame pickup cannot survive life-loss reset."
 	)
 	_check(
@@ -2144,6 +2493,7 @@ func _test_wall_collision() -> void:
 		is_equal_approx(gameplay.ball.velocity.length(), 200.0),
 		"Wall collisions preserve constant ball speed."
 	)
+	_check_ball_motion_invariant(gameplay.ball, "Real wall collision")
 
 	gameplay.ball.deactivate()
 	gameplay.queue_free()
@@ -2186,6 +2536,7 @@ func _test_brick_collision_flow() -> void:
 	_check(gameplay.effects.get_child_count() == 1, "A broken brick spawns its effect.")
 	_check(gameplay.brick_audio.get_hit_count() == 1, "Brick contact triggers pitch-varied audio.")
 	_check(gameplay.ball.velocity.y > 0.0, "The ball reflects downward from a brick's lower face.")
+	_check_ball_motion_invariant(gameplay.ball, "Real brick collision")
 
 	gameplay.ball.deactivate()
 	await get_tree().create_timer(0.4).timeout
@@ -2225,7 +2576,7 @@ func _simulate_capsule_stage(
 		var snapshot := CapsuleDropDirector.DropSnapshot.new(
 			destructible_brick_count - break_number,
 			0,
-			-1,
+			0,
 			GameSessionState.STARTING_BALLS,
 			1
 		)
@@ -2265,6 +2616,18 @@ func _check(condition: bool, message: String) -> void:
 
 	_failures += 1
 	push_error("FAIL: %s" % message)
+
+
+func _check_ball_motion_invariant(ball: BreakerBall, context: String) -> void:
+	var travel_direction := ball.velocity.normalized()
+	_check(
+		is_equal_approx(ball.velocity.length(), ball.speed),
+		"%s preserves configured speed." % context
+	)
+	_check(
+		absf(travel_direction.y) >= BreakerBall.MIN_VERTICAL_COMPONENT,
+		"%s preserves the minimum vertical angle." % context
+	)
 
 
 func _signed_pcm_mean(data: PackedByteArray) -> float:

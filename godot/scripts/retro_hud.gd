@@ -1,7 +1,7 @@
 class_name RetroHud
 extends Control
 
-const LAUNCH_PROMPT := "Press spacebar to fire the ball"
+const LAUNCH_PROMPT := "Press SPACEBAR or tap to fire"
 const VOID := Color("#050611")
 const WHITE := Color("#f7f4ff")
 const CYAN := Color("#74ddff")
