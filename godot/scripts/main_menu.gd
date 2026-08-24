@@ -2,6 +2,7 @@ class_name MainMenu
 extends Control
 
 signal start_requested(stage_number: int)
+signal community_lab_requested
 signal high_scores_requested
 signal quit_requested
 
@@ -13,7 +14,7 @@ const CYAN := Color("#74ddff")
 const WHITE := Color("#f7f4ff")
 const YELLOW := Color("#ffd84a")
 const MAGENTA := Color("#c967e8")
-const OPTION_Y := [86, 106, 126, 146]
+const OPTION_Y := [80, 96, 112, 128, 144]
 const RECENT_SCORE_Y := 174
 const SUBTITLE := "A TINY ARKANOID TRIBUTE BY @ADRIANMG"
 const INSTRUCTION_LINES := [
@@ -180,9 +181,9 @@ func _change_selected(direction: int) -> void:
 				LevelCatalog.STAGE_COUNT + 1
 			)
 			queue_redraw()
-		2:
-			DisplayController.cycle_window_mode(direction)
 		3:
+			DisplayController.cycle_window_mode(direction)
+		4:
 			AudioSettings.cycle_level(direction)
 
 
@@ -191,10 +192,12 @@ func _activate_selected() -> void:
 		0:
 			start_requested.emit(_selected_stage)
 		1:
-			high_scores_requested.emit()
+			community_lab_requested.emit()
 		2:
-			DisplayController.cycle_window_mode()
+			high_scores_requested.emit()
 		3:
+			DisplayController.cycle_window_mode()
+		4:
 			AudioSettings.cycle_level(-1)
 
 
@@ -203,10 +206,12 @@ func _get_option_text(option_index: int) -> String:
 		0:
 			return "PLAY STAGE %02d" % _selected_stage
 		1:
-			return "HIGH SCORES"
+			return "COMMUNITY LAB"
 		2:
-			return "WINDOW %s" % DisplayController.get_mode_label()
+			return "HIGH SCORES"
 		3:
+			return "WINDOW %s" % DisplayController.get_mode_label()
+		4:
 			return "SOUND %s" % AudioSettings.get_level_label()
 
 	return ""

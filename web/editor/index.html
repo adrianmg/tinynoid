@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#050611">
+    <meta
+      name="description"
+      content="Build and submit an original TINYNOID community level."
+    >
+    <title>TINYNOID Community Level Editor</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <!--
+      THESIS: A cartridge workbench makes the level itself the instrument and refuses dashboard cards.
+      OWN-WORLD: Ink-black field, hard cyan rails, opaque brick colors, square controls, and bitmap-like labels.
+      STORY: Name a level, paint its fixed grid, inspect its playable density, and submit it to the unranked Lab.
+      FIRST VIEWPORT: A wide editing matrix leads; the compact identity and submit rail stays visible beside it.
+      FORM: The third grounded Operate structure, a split compose-and-test bench, seeded by 8bb78605.
+    -->
+    <main class="editor-shell">
+      <header class="masthead">
+        <a class="brand-lockup" href="../" aria-label="Return to TINYNOID">
+          <span class="brand-mark" aria-hidden="true">TINYNOID</span>
+          <span class="brand-subtitle">COMMUNITY CARTRIDGE WORKSHOP</span>
+        </a>
+        <div class="lab-status">
+          <span class="status-light" aria-hidden="true"></span>
+          <span>SUBMISSIONS ENTER THE UNRANKED LAB AS UNREVIEWED</span>
+        </div>
+      </header>
+
+      <section class="workbench" aria-labelledby="editor-title">
+        <div class="compose-panel">
+          <div class="panel-heading">
+            <div>
+              <h1 id="editor-title">BUILD A PHASE</h1>
+              <p>Tap, click, or press Space to cycle each brick.</p>
+            </div>
+            <output id="block-count" class="block-count" aria-live="polite">
+              0 BRICKS
+            </output>
+          </div>
+
+          <div class="arena-frame">
+            <div class="arena-hud" aria-hidden="true">
+              <span>COMMUNITY LAB</span>
+              <span>SCHEMA V1</span>
+            </div>
+            <div
+              id="level-grid"
+              class="level-grid"
+              role="grid"
+              aria-label="Community level brick layout"
+              aria-describedby="grid-help"
+            ></div>
+            <div class="arena-floor" aria-hidden="true">
+              <span class="preview-ball"></span>
+              <span class="preview-paddle"></span>
+            </div>
+          </div>
+          <p id="grid-help" class="sr-only">
+            Use arrow keys to move between cells. Press Space or Enter to cycle
+            the selected cell through empty and each supported brick type.
+          </p>
+
+          <div class="palette-strip" aria-label="Brick cycle order">
+            <span class="palette-label">BRICK CYCLE</span>
+            <div id="palette" class="palette"></div>
+          </div>
+        </div>
+
+        <form id="level-form" class="control-rail" novalidate>
+          <div class="rail-heading">
+            <span class="rail-index" aria-hidden="true">LAB / 01</span>
+            <h2>LABEL THE CARTRIDGE</h2>
+            <p>
+              Names are public. New levels are playable immediately and clearly
+              marked UNREVIEWED until moderation.
+            </p>
+          </div>
+
+          <label class="field">
+            <span>LEVEL NAME</span>
+            <input
+              id="level-name"
+              name="levelName"
+              type="text"
+              autocomplete="off"
+              maxlength="32"
+              aria-describedby="level-name-error"
+              required
+            >
+            <small id="level-name-error" class="field-message"></small>
+          </label>
+
+          <label class="field">
+            <span>CREATOR DISPLAY NAME / HANDLE</span>
+            <input
+              id="creator-name"
+              name="creatorName"
+              type="text"
+              autocomplete="nickname"
+              maxlength="24"
+              aria-describedby="creator-name-error"
+              required
+            >
+            <small id="creator-name-error" class="field-message"></small>
+          </label>
+
+          <section class="readout" aria-labelledby="readout-title">
+            <h3 id="readout-title">PLAYABILITY READOUT</h3>
+            <dl>
+              <div>
+                <dt>GRID</dt>
+                <dd id="grid-size">-- × --</dd>
+              </div>
+              <div>
+                <dt>FILLED</dt>
+                <dd id="filled-readout">0</dd>
+              </div>
+              <div>
+                <dt>STATUS</dt>
+                <dd id="validity-readout">NOT READY</dd>
+              </div>
+            </dl>
+          </section>
+
+          <div class="form-actions">
+            <button id="submit-button" class="primary-action" type="submit">
+              SUBMIT TO COMMUNITY LAB
+            </button>
+            <button id="clear-button" class="secondary-action" type="button">
+              CLEAR GRID
+            </button>
+          </div>
+
+          <div
+            id="submission-status"
+            class="submission-status"
+            role="status"
+            aria-live="polite"
+            tabindex="-1"
+          >
+            <span class="status-code">READY</span>
+            <p>Create an original layout, then submit it for immediate unranked play.</p>
+          </div>
+        </form>
+      </section>
+
+      <footer class="page-footer">
+        <span>ORIGINAL LAYOUTS ONLY</span>
+        <a href="../">PLAY TINYNOID</a>
+      </footer>
+    </main>
+  </body>
+</html>

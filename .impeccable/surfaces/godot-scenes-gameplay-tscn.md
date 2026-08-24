@@ -41,6 +41,9 @@ action on touch, keyboard, mouse, or controller.
 - Distinct deterministic pulse/arpeggio/bass/noise arrangements are generated
   for all 33 stages, persist across life loss, and are controlled by Sound.
 - No ROM data, extracted assets, or copied level layouts.
+- Community layouts reuse the native brick spawn rules but are always unranked.
+- Community play opens with `LEVEL NAME — BY CREATOR`; pending content also
+  carries a conspicuous `UNREVIEWED` label.
 
 ## Chosen direction and memorable moment
 
@@ -48,6 +51,8 @@ The Neon Cartridge: ink-black arena, segmented ice-blue machine rails, compact
 bitmap HUD, and a full-palette rainbow gate. The signature moment is a brick
 shattering into opaque same-hue pixel shards while the ball leaves stepped cyan
 afterimages. Falling chips announce their full mechanic name when collected.
+Community cartridges briefly occupy the HUD threshold with their attribution
+before the arena becomes primary again.
 
 ## Unresolved decisions
 

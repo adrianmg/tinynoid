@@ -7,7 +7,13 @@ const RED := Color("#f15b68")
 
 
 func _ready() -> void:
-	configure_result("GAME OVER", RED, "RETRY", "game_over")
+	configure_result(
+		"GAME OVER",
+		RED,
+		"RETRY",
+		"game_over",
+		not GameSession.is_community_run()
+	)
 	super._ready()
 
 
