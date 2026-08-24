@@ -6,6 +6,8 @@ signal deactivated
 
 const BASE_SPEED := 200.0
 const SLOW_SPEED := 150.0
+# A 14.5-degree floor prevents flat loops without changing 22-degree paddle edge shots.
+const MIN_VERTICAL_COMPONENT := 0.25
 const PADDLE_TOP_NORMAL_THRESHOLD := -0.75
 const BRICK_COLLISION_MASK := 1 << 3
 
@@ -62,7 +64,7 @@ func launch_in_direction(direction: Vector2) -> void:
 		push_error("The ball requires a non-zero launch direction.")
 		return
 
-	_direction = direction.normalized()
+	_set_direction(direction)
 	velocity = _direction * speed
 	_active = true
 	launched.emit()
@@ -122,7 +124,7 @@ func _follow_paddle() -> void:
 
 
 func _move_with_bounces(delta: float) -> void:
-	velocity = _direction.normalized() * speed
+	velocity = _direction * speed
 	var remaining_motion := velocity * delta
 
 	for collision_index in range(max_collisions_per_tick):
@@ -146,16 +148,16 @@ func _move_with_bounces(delta: float) -> void:
 				if collider.catch_enabled:
 					catch_on_paddle(collider)
 					return
-				_direction = collider.get_bounce_direction(
-					global_position.x,
-					_direction
+				_set_direction(
+					collider.get_bounce_direction(
+						global_position.x,
+						_direction
+					)
 				)
 			else:
-				_direction = _direction.bounce(
-					collision_normal
-				).normalized()
+				_set_direction(_direction.bounce(collision_normal))
 		else:
-			_direction = _direction.bounce(collision.get_normal()).normalized()
+			_set_direction(_direction.bounce(collision.get_normal()))
 			if collider_node != null and collider_node.is_in_group("bricks"):
 				collider_node.call(&"hit")
 				velocity = _direction * speed
@@ -163,6 +165,28 @@ func _move_with_bounces(delta: float) -> void:
 
 		velocity = _direction * speed
 		remaining_motion = _direction * remaining_distance
+
+
+func _set_direction(direction: Vector2) -> void:
+	var normalized_direction := direction.normalized()
+	if absf(normalized_direction.y) >= MIN_VERTICAL_COMPONENT:
+		_direction = normalized_direction
+		return
+
+	var vertical_sign := signf(normalized_direction.y)
+	if is_zero_approx(vertical_sign):
+		vertical_sign = signf(_direction.y)
+	if is_zero_approx(vertical_sign):
+		vertical_sign = -1.0
+
+	var horizontal_sign := signf(normalized_direction.x)
+	var horizontal_component := sqrt(
+		1.0 - MIN_VERTICAL_COMPONENT * MIN_VERTICAL_COMPONENT
+	)
+	_direction = Vector2(
+		horizontal_sign * horizontal_component,
+		vertical_sign * MIN_VERTICAL_COMPONENT
+	)
 
 
 func catch_on_paddle(paddle: PaddleController) -> void:

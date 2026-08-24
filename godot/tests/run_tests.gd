@@ -23,6 +23,18 @@ func _ready() -> void:
 
 
 func _run() -> void:
+	if "--ball-physics-only" in OS.get_cmdline_user_args():
+		await _test_ball_direction_invariant()
+		await _test_thru_physics()
+		await _test_paddle_bounce_angles()
+		await _test_physics_signal_wiring()
+		await _test_paddle_wall_edge_escape()
+		await _test_power_up_effects()
+		await _test_wall_collision()
+		await _test_brick_collision_flow()
+		await _finish("Ball physics tests")
+		return
+
 	await _test_pixel_perfect_settings()
 	await _test_generated_music()
 	await _test_streaming_music_preview()
@@ -42,6 +54,7 @@ func _run() -> void:
 	await _test_level_content()
 	await _test_brick_scores_once()
 	await _test_paddle_bounce_angles()
+	await _test_ball_direction_invariant()
 	await _test_ball_launch()
 	await _test_brick_break_effect()
 	await _test_brick_audio_pitch()
@@ -59,10 +72,14 @@ func _run() -> void:
 	await _test_wall_collision()
 	await _test_brick_collision_flow()
 
+	await _finish("All Godot port tests")
+
+
+func _finish(suite_name: String) -> void:
 	if _failures == 0:
-		print("All Godot port tests passed.")
+		print("%s passed." % suite_name)
 	else:
-		push_error("%d Godot port test(s) failed." % _failures)
+		push_error("%d %s failed." % [_failures, suite_name.to_lower()])
 
 	MusicController.shutdown()
 	await get_tree().process_frame
@@ -1137,6 +1154,7 @@ func _test_thru_physics() -> void:
 		"Thru damages Silver once per pass (remaining hits: %d)." % silver_brick.hit_points
 	)
 	_check(silver_ball.velocity.x > 0.0, "Thru does not bounce off Silver.")
+	_check_ball_motion_invariant(silver_ball, "Thru Silver pass")
 	silver_world.queue_free()
 	await get_tree().process_frame
 
@@ -1158,6 +1176,7 @@ func _test_thru_physics() -> void:
 		await get_tree().physics_frame
 	_check(is_instance_valid(gold_brick), "Thru never destroys Gold.")
 	_check(gold_ball.velocity.x < 0.0, "Gold remains solid while Thru is active.")
+	_check_ball_motion_invariant(gold_ball, "Thru Gold collision")
 	gold_world.queue_free()
 	await get_tree().process_frame
 
@@ -1334,6 +1353,63 @@ func _test_paddle_bounce_angles() -> void:
 	)
 
 	paddle.queue_free()
+	await get_tree().process_frame
+
+
+func _test_ball_direction_invariant() -> void:
+	var world := Node2D.new()
+	var unsafe_up: BreakerBall = BALL_SCENE.instantiate()
+	var unsafe_down: BreakerBall = BALL_SCENE.instantiate()
+	var safe_ball: BreakerBall = BALL_SCENE.instantiate()
+	var horizontal_ball: BreakerBall = BALL_SCENE.instantiate()
+	world.add_child(unsafe_up)
+	world.add_child(unsafe_down)
+	world.add_child(safe_ball)
+	world.add_child(horizontal_ball)
+	get_tree().root.add_child(world)
+	await get_tree().process_frame
+
+	unsafe_up.launch_in_direction(Vector2(1.0, -0.01))
+	unsafe_down.launch_in_direction(Vector2(1.0, 0.01))
+	safe_ball.launch_in_direction(Vector2(0.8, -0.6))
+	horizontal_ball.launch_in_direction(Vector2.RIGHT)
+
+	var upward_direction := unsafe_up.velocity.normalized()
+	var downward_direction := unsafe_down.velocity.normalized()
+	_check(
+		is_equal_approx(
+			absf(upward_direction.y),
+			BreakerBall.MIN_VERTICAL_COMPONENT
+		),
+		"An unsafe upward trajectory receives the minimum vertical component."
+	)
+	_check(
+		is_equal_approx(upward_direction.y, -downward_direction.y)
+		and is_equal_approx(upward_direction.x, downward_direction.x),
+		"Minimum-angle correction is symmetrical upward and downward."
+	)
+	_check(
+		upward_direction.x > 0.0
+		and upward_direction.y < 0.0
+		and downward_direction.y > 0.0,
+		"Minimum-angle correction preserves horizontal and vertical signs."
+	)
+	_check(
+		safe_ball.velocity.normalized().is_equal_approx(Vector2(0.8, -0.6)),
+		"Already-safe normalized trajectories remain unchanged."
+	)
+	_check(
+		horizontal_ball.velocity.x > 0.0
+		and is_equal_approx(
+			horizontal_ball.velocity.normalized().y,
+			-BreakerBall.MIN_VERTICAL_COMPONENT
+		),
+		"An exactly horizontal launch deterministically escapes upward."
+	)
+	_check_ball_motion_invariant(unsafe_up, "Corrected upward launch")
+	_check_ball_motion_invariant(unsafe_down, "Corrected downward launch")
+
+	world.queue_free()
 	await get_tree().process_frame
 
 
@@ -1539,6 +1615,10 @@ func _test_physics_signal_wiring() -> void:
 		paddle_gameplay.ball.velocity.y < 0.0,
 		"A real physics collision bounces the ball upward from the paddle."
 	)
+	_check_ball_motion_invariant(
+		paddle_gameplay.ball,
+		"Real paddle collision"
+	)
 	_check(
 		GameSession.balls_remaining == 3,
 		"Paddle collision does not consume a ball."
@@ -1612,6 +1692,7 @@ func _test_paddle_wall_edge_escape() -> void:
 		),
 		"The edge escape preserves constant ball speed."
 	)
+	_check_ball_motion_invariant(gameplay.ball, "Paddle-wall edge escape")
 
 	gameplay.ball.deactivate()
 	gameplay.queue_free()
@@ -1815,7 +1896,7 @@ func _test_power_up_effects() -> void:
 
 	var bricks_before_thru := gameplay.level.get_brick_count()
 	gameplay.ball.global_position = Vector2(50, 52)
-	gameplay.ball.launch_in_direction(Vector2.RIGHT)
+	gameplay.ball.launch_in_direction(Vector2(1.0, 0.625))
 	for physics_step in range(35):
 		await get_tree().physics_frame
 	await get_tree().process_frame
@@ -2025,6 +2106,7 @@ func _test_wall_collision() -> void:
 		is_equal_approx(gameplay.ball.velocity.length(), 200.0),
 		"Wall collisions preserve constant ball speed."
 	)
+	_check_ball_motion_invariant(gameplay.ball, "Real wall collision")
 
 	gameplay.ball.deactivate()
 	gameplay.queue_free()
@@ -2067,6 +2149,7 @@ func _test_brick_collision_flow() -> void:
 	_check(gameplay.effects.get_child_count() == 1, "A broken brick spawns its effect.")
 	_check(gameplay.brick_audio.get_hit_count() == 1, "Brick contact triggers pitch-varied audio.")
 	_check(gameplay.ball.velocity.y > 0.0, "The ball reflects downward from a brick's lower face.")
+	_check_ball_motion_invariant(gameplay.ball, "Real brick collision")
 
 	gameplay.ball.deactivate()
 	await get_tree().create_timer(0.4).timeout
@@ -2138,6 +2221,18 @@ func _check(condition: bool, message: String) -> void:
 
 	_failures += 1
 	push_error("FAIL: %s" % message)
+
+
+func _check_ball_motion_invariant(ball: BreakerBall, context: String) -> void:
+	var travel_direction := ball.velocity.normalized()
+	_check(
+		is_equal_approx(ball.velocity.length(), ball.speed),
+		"%s preserves configured speed." % context
+	)
+	_check(
+		absf(travel_direction.y) >= BreakerBall.MIN_VERTICAL_COMPONENT,
+		"%s preserves the minimum vertical angle." % context
+	)
 
 
 func _signed_pcm_mean(data: PackedByteArray) -> float:
