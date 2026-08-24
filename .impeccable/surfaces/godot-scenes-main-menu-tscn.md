@@ -12,7 +12,7 @@ related_targets: ["godot/scripts/display_controller.gd"]
 ## Audience, job, and action
 
 A playtester should start the stage or adjust window and sound settings in a
-few seconds using mouse, keyboard, or controller.
+few seconds using touch, mouse, keyboard, or controller.
 
 ## Content and constraints
 
@@ -24,11 +24,12 @@ few seconds using mouse, keyboard, or controller.
 - Copy names logical actions rather than privileging a single device.
 - The 256x240 pixel grid and opaque fixed palette remain normative.
 - Focus movement and option activation use distinct generated chiptune sounds.
+- Tapping an option selects and activates it in one deliberate press.
 - The menu theme is a mysterious, dreamy 88 BPM space overture with sparse
   melody, fifth shimmer, and alternating-bar percussion.
-- The subtitle reads `A TINY TRIBUTE FROM ME TO THE ORIGINAL GAME`.
+- The subtitle reads `A TINY TRIBUTE FROM ADRIAN MATO TO ARKANOID`.
 - The bottom contains only `ARROW KEYS TO MOVE & SELECT`,
-  `ENTER / SPACEBAR TO SELECT`, and Escape instructions.
+  `ENTER / SPACE / TAP TO SELECT`, and Escape instructions.
 
 ## Chosen direction and memorable moment
 

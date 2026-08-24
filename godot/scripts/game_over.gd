@@ -13,6 +13,7 @@ const CYAN := Color("#74ddff")
 
 
 func _ready() -> void:
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	queue_redraw()
 
 
@@ -24,10 +25,16 @@ func _draw() -> void:
 	PixelFont.draw_centered(self, "GAME OVER", 84, RED, 2)
 	PixelFont.draw_centered(self, "SCORE", 118, WHITE)
 	PixelFont.draw_centered(self, "%06d" % GameSession.score, 128, YELLOW)
-	PixelFont.draw_centered(self, "PRESS FIRE TO RETRY", 154, WHITE)
+	PixelFont.draw_centered(self, "TAP OR FIRE TO RETRY", 154, WHITE)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("restart") or event.is_action_pressed("launch"):
 		get_viewport().set_input_as_handled()
+		new_game_requested.emit()
+
+
+func _gui_input(event: InputEvent) -> void:
+	if GamePointer.is_primary_press(event):
+		accept_event()
 		new_game_requested.emit()

@@ -1,7 +1,7 @@
 class_name RetroHud
 extends Control
 
-const LAUNCH_PROMPT := "Press spacebar to fire the ball"
+const LAUNCH_PROMPT := "Press SPACEBAR or tap to fire"
 const VOID := Color("#050611")
 const WHITE := Color("#f7f4ff")
 const CYAN := Color("#74ddff")
@@ -70,11 +70,23 @@ func is_launch_ready() -> bool:
 	return _launch_ready
 
 
-func show_power_up(label: String, color: Color) -> void:
+func show_power_up(
+	label: String,
+	color: Color,
+	duration: float = 1.5
+) -> void:
 	_power_up_label = label
 	_power_up_color = color
-	_power_up_time_left = 1.5
+	_power_up_time_left = duration
 	queue_redraw()
+
+
+func get_power_up_label() -> String:
+	return _power_up_label
+
+
+func get_power_up_time_left() -> float:
+	return _power_up_time_left
 
 
 func clear_power_up_status() -> void:
