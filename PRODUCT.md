@@ -34,8 +34,13 @@ controller.
 - Godot 4.7.2 with GDScript and the Compatibility renderer.
 - A 256x240 logical canvas with integer scaling.
 - Main menu with Play, window scale/fullscreen, and four persistent sound levels.
+- Post-game X/Twitter handle capture, recent-player activity, and a scrollable
+  global Top 100 with local fallback.
 - 33 original stages, selectable starts, progression, score, stage-clear,
   game-over, and replay.
+- Only campaigns started at Stage 1 qualify for global submission; terminal
+  score screens can share a generated score-card image where the platform
+  supports file sharing.
 - Eight falling capsule mechanics: Expand, Slow, Disruption, Catch, Laser,
   Break, Player, and Thru.
 - Seeded capsule luck guarantees the first stage reward within 3-6 eligible
@@ -62,7 +67,7 @@ controller.
 ## Brand Commitments
 
 The game and project are named **TINYNOID**, subtitled
-**A tiny tribute from Adrian Mato to Arkanoid**.
+**A tiny Arkanoid tribute by @adrianmg**.
 The experience should remain immediate, arcade-readable, and playful rather
 than becoming a simulation or content-heavy campaign.
 

@@ -16,6 +16,9 @@ var balls_remaining := STARTING_BALLS
 var level := 1
 var run_seed := 0
 var starter_capsule_pending := true
+var run_id := ""
+var run_start_stage := 1
+var _run_result_captured := false
 
 
 func new_game(start_level: int = 1, run_seed_override: int = -1) -> void:
@@ -32,6 +35,9 @@ func new_game(start_level: int = 1, run_seed_override: int = -1) -> void:
 		else _generate_run_seed()
 	)
 	starter_capsule_pending = true
+	run_id = _create_run_id()
+	run_start_stage = start_level
+	_run_result_captured = false
 	_emit_state_changed()
 
 
@@ -66,6 +72,46 @@ func advance_level() -> void:
 
 func mark_starter_capsule_spawned() -> void:
 	starter_capsule_pending = false
+
+
+func can_submit_score() -> bool:
+	return run_start_stage == 1 and not _run_result_captured
+
+
+func capture_run_result(outcome: String) -> Dictionary:
+	if _run_result_captured:
+		return {}
+	if outcome != "game_over" and outcome != "campaign_clear":
+		push_error("Unknown leaderboard outcome: %s" % outcome)
+		return {}
+	if outcome == "campaign_clear" and level != LevelCatalog.STAGE_COUNT:
+		push_error("Campaign clear can only be captured on the final stage.")
+		return {}
+
+	_run_result_captured = true
+	return {
+		"run_id": run_id,
+		"score": score,
+		"outcome": outcome,
+		"completed_stage": level,
+		"start_stage": run_start_stage,
+		"eligible": run_start_stage == 1,
+	}
+
+
+static func _create_run_id() -> String:
+	var bytes := Crypto.new().generate_random_bytes(16)
+	assert(bytes.size() == 16, "Could not generate a leaderboard run ID.")
+	bytes[6] = (bytes[6] & 0x0f) | 0x40
+	bytes[8] = (bytes[8] & 0x3f) | 0x80
+	var encoded := bytes.hex_encode()
+	return "%s-%s-%s-%s-%s" % [
+		encoded.substr(0, 8),
+		encoded.substr(8, 4),
+		encoded.substr(12, 4),
+		encoded.substr(16, 4),
+		encoded.substr(20, 12),
+	]
 
 
 func _emit_state_changed() -> void:
