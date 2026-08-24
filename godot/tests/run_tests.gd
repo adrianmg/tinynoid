@@ -652,6 +652,13 @@ func _test_community_catalog() -> void:
 		"An exact freshness response must match the requested id."
 	)
 	_check(
+		CommunityCatalogClient.parse_exact_response(
+			[],
+			pending_level.id
+		).get("unavailable", false),
+		"An empty exact response definitively marks a level unavailable."
+	)
+	_check(
 		CommunityCatalogClient.deep_link_id(
 			"?foo=bar&community=cl_0123456789abcdef01234567"
 		) == pending_level.id,
@@ -661,6 +668,8 @@ func _test_community_catalog() -> void:
 	var catalog_client := CommunityCatalogClient.new()
 	get_tree().root.add_child(catalog_client)
 	await get_tree().process_frame
+	var test_cache_path := "user://community_levels_test.json"
+	catalog_client.set("_cache_path", test_cache_path)
 	_check(
 		catalog_client.call("_request_headers").size() == 2,
 		"Community requests include the publishable API key."
@@ -676,6 +685,18 @@ func _test_community_catalog() -> void:
 	_check(
 		not catalog_client.is_confirmed_playable(pending_level.id),
 		"Catalog and cached rows are not fresh enough to play."
+	)
+	catalog_client.set("_requested_id", pending_level.id)
+	catalog_client.call(
+		"_on_exact_completed",
+		HTTPRequest.RESULT_CANT_CONNECT,
+		0,
+		PackedStringArray(),
+		PackedByteArray()
+	)
+	_check(
+		catalog_client.cached_entries().size() == 1,
+		"Offline exact checks retain cached levels for later verification."
 	)
 	catalog_client.set("_requested_id", pending_level.id)
 	catalog_client.call(
@@ -698,9 +719,19 @@ func _test_community_catalog() -> void:
 		JSON.stringify([quarantined]).to_utf8_buffer()
 	)
 	_check(
-		not catalog_client.is_confirmed_playable(pending_level.id),
-		"A failed status freshness check revokes playability."
+		not catalog_client.is_confirmed_playable(pending_level.id)
+		and catalog_client.cached_entries().is_empty(),
+		"A definitive hidden response revokes playability and evicts memory cache."
 	)
+	var persisted_cache: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(test_cache_path)
+	)
+	_check(
+		persisted_cache is Dictionary
+		and persisted_cache.get("entries", []).is_empty(),
+		"A definitive hidden response evicts the persistent cache entry."
+	)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_cache_path))
 	catalog_client.queue_free()
 	await get_tree().process_frame
 
@@ -720,6 +751,42 @@ func _test_community_catalog() -> void:
 		and lab.get_status_text() == "OFFLINE CACHE - RECHECK REQUIRED",
 		"The chooser labels cached offline content and requires verification."
 	)
+	var original_catalog_entries := CommunityCatalog.cached_entries()
+	var singleton_catalog_entry: Array[Dictionary] = [pending_level]
+	CommunityCatalog.set("_entries", singleton_catalog_entry)
+	lab.set("_checking_id", pending_level.id)
+	lab.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community service is offline."
+	)
+	_check(
+		lab.get_entries().size() == 1
+		and lab.get_status_text() == "OFFLINE CACHE - RECHECK REQUIRED",
+		"An offline exact failure retains and labels the cached level."
+	)
+	var empty_catalog_entries: Array[Dictionary] = []
+	CommunityCatalog.set("_entries", empty_catalog_entries)
+	lab.set("_checking_id", pending_level.id)
+	lab.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community level is no longer available."
+	)
+	_check(
+		lab.get_entries().is_empty(),
+		"A definitively hidden level disappears from the chooser."
+	)
+	_check(
+		lab.get_status_text() != "OFFLINE CACHE - RECHECK REQUIRED",
+		"A definitively hidden level is not labeled as offline cache."
+	)
+	CommunityCatalog.set("_entries", original_catalog_entries)
+	lab.set("_notice", "")
 	var no_entries: Array[Dictionary] = []
 	lab.call(
 		"_on_catalog_updated",
@@ -833,6 +900,37 @@ func _test_community_catalog() -> void:
 		and retry_screen.get_status_text()
 			== "COMMUNITY LEVEL IS NO LONGER AVAILABLE.",
 		"A hidden community retry clears stale gameplay and returns to the Lab."
+	)
+	GameSession.new_community_game(pending_level, 2468)
+	main.set("_community_retry_id", pending_level.id)
+	main.call("_show_main_menu")
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		true,
+		pending_level,
+		""
+	)
+	await get_tree().process_frame
+	_check(
+		main.get("_current_screen") is MainMenu
+		and String(main.get("_community_retry_id")).is_empty(),
+		"A retry response cannot reopen gameplay after navigation."
+	)
+	main.set("_deep_link_id", pending_level.id)
+	main.call("_show_high_scores")
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		true,
+		pending_level,
+		""
+	)
+	await get_tree().process_frame
+	_check(
+		main.get("_current_screen") is HighScoresScreen
+		and String(main.get("_deep_link_id")).is_empty(),
+		"A deep-link response cannot replace a newer navigation target."
 	)
 	main.queue_free()
 	await get_tree().process_frame

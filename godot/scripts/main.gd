@@ -123,8 +123,8 @@ func _retry_community_level() -> void:
 	if not CommunityCatalogClient.is_valid_id(level_id):
 		_fail_community_retry("Community level is no longer available.")
 		return
-	_community_retry_id = level_id
 	_show_community_lab("VERIFYING RETRY ONLINE")
+	_community_retry_id = level_id
 	if (
 		not CommunityCatalog.request_exact(level_id)
 		and _community_retry_id == level_id
@@ -287,9 +287,15 @@ func _quit_game() -> void:
 
 
 func _replace_screen(next_screen: Node) -> void:
+	_cancel_pending_community_navigation()
 	if is_instance_valid(_current_screen):
 		remove_child(_current_screen)
 		_current_screen.queue_free()
 
 	_current_screen = next_screen
 	add_child(_current_screen)
+
+
+func _cancel_pending_community_navigation() -> void:
+	_deep_link_id = ""
+	_community_retry_id = ""

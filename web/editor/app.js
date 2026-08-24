@@ -1,6 +1,8 @@
 import {
   LEVEL_SCHEMA,
   emptyLayout,
+  gridNavigationTarget,
+  interpolateGridIndexes,
   isCommunityLevelId,
   resolvePaintCode,
   validateLevel,
@@ -47,6 +49,8 @@ let selectedTool = "cycle";
 let painting = false;
 let strokeCode = LEVEL_SCHEMA.empty;
 let paintedIndexes = new Set();
+let previousPaintIndex = null;
+let activePointerId = null;
 
 function valueAt(index) {
   const row = Math.floor(index / LEVEL_SCHEMA.columns);
@@ -211,6 +215,9 @@ function beginPaint(event) {
   cell.focus({ preventScroll: true });
   painting = true;
   paintedIndexes = new Set();
+  previousPaintIndex = null;
+  activePointerId = event.pointerId;
+  elements.grid.setPointerCapture?.(event.pointerId);
   strokeCode = resolvePaintCode(
     selectedTool,
     valueAt(Number(cell.dataset.index)),
@@ -220,39 +227,49 @@ function beginPaint(event) {
 }
 
 function continuePaint(event, knownCell = null) {
-  if (!painting) return;
+  if (!painting || (activePointerId !== null && event.pointerId !== activePointerId)) return;
   event.preventDefault();
   const cell = knownCell || cellAtPointer(event);
   if (!cell) return;
   const index = Number(cell.dataset.index);
-  if (paintedIndexes.has(index)) return;
-  paintedIndexes.add(index);
-  paintCell(cell, strokeCode);
+  const indexes =
+    previousPaintIndex === null
+      ? [index]
+      : interpolateGridIndexes(previousPaintIndex, index);
+  for (const paintIndex of indexes) {
+    if (paintedIndexes.has(paintIndex)) continue;
+    paintedIndexes.add(paintIndex);
+    const paintTarget = elements.grid.querySelector(`[data-index="${paintIndex}"]`);
+    if (paintTarget) paintCell(paintTarget, strokeCode);
+  }
+  previousPaintIndex = index;
 }
 
-function endPaint() {
+function endPaint(event) {
+  if (
+    event?.pointerId !== undefined &&
+    activePointerId !== null &&
+    event.pointerId !== activePointerId
+  ) {
+    return;
+  }
+  if (
+    activePointerId !== null &&
+    elements.grid.hasPointerCapture?.(activePointerId)
+  ) {
+    elements.grid.releasePointerCapture(activePointerId);
+  }
   painting = false;
   paintedIndexes.clear();
+  previousPaintIndex = null;
+  activePointerId = null;
 }
 
 function handleGridKeydown(event) {
   const cell = event.target.closest(".grid-cell");
   if (!cell) return;
   const index = Number(cell.dataset.index);
-  let targetIndex = index;
-  if (event.key === "ArrowLeft") targetIndex = Math.max(0, index - 1);
-  if (event.key === "ArrowRight") {
-    targetIndex = Math.min(LEVEL_SCHEMA.rows * LEVEL_SCHEMA.columns - 1, index + 1);
-  }
-  if (event.key === "ArrowUp") {
-    targetIndex = Math.max(0, index - LEVEL_SCHEMA.columns);
-  }
-  if (event.key === "ArrowDown") {
-    targetIndex = Math.min(
-      LEVEL_SCHEMA.rows * LEVEL_SCHEMA.columns - 1,
-      index + LEVEL_SCHEMA.columns,
-    );
-  }
+  const targetIndex = gridNavigationTarget(index, event.key);
   if (event.key === " " || event.key === "Enter") {
     event.preventDefault();
     focusCell(cell);
@@ -262,8 +279,10 @@ function handleGridKeydown(event) {
     );
     return;
   }
-  if (targetIndex !== index) {
+  if (targetIndex !== null) {
     event.preventDefault();
+  }
+  if (targetIndex !== null && targetIndex !== index) {
     cell.tabIndex = -1;
     const target = elements.grid.querySelector(`[data-index="${targetIndex}"]`);
     if (target) {
@@ -386,8 +405,8 @@ elements.palette.addEventListener("click", (event) => {
 });
 elements.grid.addEventListener("pointerdown", beginPaint);
 window.addEventListener("pointermove", (event) => continuePaint(event));
-window.addEventListener("pointerup", endPaint);
-window.addEventListener("pointercancel", endPaint);
+window.addEventListener("pointerup", (event) => endPaint(event));
+window.addEventListener("pointercancel", (event) => endPaint(event));
 window.addEventListener("blur", endPaint);
 elements.grid.addEventListener("keydown", handleGridKeydown);
 elements.form.addEventListener("submit", submitLevel);

@@ -251,6 +251,28 @@ func _on_level_checked(
 	if playable and CommunityCatalog.is_confirmed_playable(level_id):
 		level_requested.emit(level)
 		return
+	var cached_entries := CommunityCatalog.cached_entries()
+	var remains_cached := cached_entries.any(
+		func(entry: Dictionary) -> bool:
+			return String(entry.get("id", "")) == level_id
+	)
+	if not remains_cached:
+		_entries = cached_entries
+		_selected_index = clampi(_selected_index, 0, _entries.size())
+		_ensure_selection_visible()
+		_state = (
+			CommunityCatalog.STATE_EMPTY
+			if _entries.is_empty()
+			else CommunityCatalog.STATE_STALE
+		)
+		_notice = (
+			message
+			if not message.is_empty()
+			else "Community level is no longer available."
+		)
+		_message = ""
+		queue_redraw()
+		return
 	_state = (
 		CommunityCatalog.STATE_STALE
 		if not _entries.is_empty()

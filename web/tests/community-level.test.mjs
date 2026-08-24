@@ -6,6 +6,8 @@ import {
   canonicalText,
   contentHash,
   emptyLayout,
+  gridNavigationTarget,
+  interpolateGridIndexes,
   isCommunityLevelId,
   normalizeName,
   resolvePaintCode,
@@ -115,4 +117,25 @@ test("resolves selected, cycling, and erase paint tools", () => {
   assert.equal(resolvePaintCode("cycle", "X", false), ".");
   assert.equal(resolvePaintCode("Y", "R", true), ".");
   assert.equal(resolvePaintCode("invalid", "G", false), "G");
+});
+
+test("interpolates complete horizontal, vertical, and diagonal strokes", () => {
+  assert.deepEqual(interpolateGridIndexes(0, 4), [0, 1, 2, 3, 4]);
+  assert.deepEqual(interpolateGridIndexes(0, 39), [0, 13, 26, 39]);
+  assert.deepEqual(interpolateGridIndexes(0, 42), [0, 14, 28, 42]);
+  assert.deepEqual(interpolateGridIndexes(42, 0), [42, 28, 14, 0]);
+  assert.deepEqual(interpolateGridIndexes(-1, 4), []);
+  assert.equal(new Set(interpolateGridIndexes(0, 42)).size, 4);
+});
+
+test("moves within grid rows and columns without wrapping at boundaries", () => {
+  assert.equal(gridNavigationTarget(0, "ArrowUp"), 0);
+  assert.equal(gridNavigationTarget(117, "ArrowDown"), 117);
+  assert.equal(gridNavigationTarget(13, "ArrowLeft"), 13);
+  assert.equal(gridNavigationTarget(12, "ArrowRight"), 12);
+  assert.equal(gridNavigationTarget(14, "ArrowLeft"), 13);
+  assert.equal(gridNavigationTarget(14, "ArrowRight"), 15);
+  assert.equal(gridNavigationTarget(14, "ArrowUp"), 1);
+  assert.equal(gridNavigationTarget(14, "ArrowDown"), 27);
+  assert.equal(gridNavigationTarget(14, "Enter"), null);
 });

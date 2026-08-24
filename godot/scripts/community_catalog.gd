@@ -43,6 +43,7 @@ var _catalog_in_flight := false
 var _exact_in_flight := false
 var _requested_id := ""
 var _confirmed_levels: Dictionary = {}
+var _cache_path := CACHE_PATH
 
 
 func _ready() -> void:
@@ -231,15 +232,38 @@ static func parse_exact_response(value: Variant, expected_id: String) -> Diction
 		return {"ok": false, "error": "Invalid community level id."}
 	var candidate: Variant = value
 	if value is Array:
+		if value.is_empty():
+			return {
+				"ok": false,
+				"unavailable": true,
+				"error": "Community level is no longer available.",
+			}
 		if value.size() != 1:
-			return {"ok": false, "error": "Community level is no longer available."}
+			return {"ok": false, "error": "Community freshness response was ambiguous."}
 		candidate = value[0]
 	elif value is Dictionary and value.has("level"):
 		candidate = value.level
 	elif value is Dictionary and value.has("levels"):
-		if not value.levels is Array or value.levels.size() != 1:
-			return {"ok": false, "error": "Community level is no longer available."}
+		if not value.levels is Array:
+			return {"ok": false, "error": "Community freshness response was invalid."}
+		if value.levels.is_empty():
+			return {
+				"ok": false,
+				"unavailable": true,
+				"error": "Community level is no longer available.",
+			}
+		if value.levels.size() != 1:
+			return {"ok": false, "error": "Community freshness response was ambiguous."}
 		candidate = value.levels[0]
+	if candidate is Dictionary:
+		var candidate_id := String(candidate.get("id", ""))
+		var candidate_status := String(candidate.get("status", ""))
+		if candidate_id == expected_id and not is_playable_status(candidate_status):
+			return {
+				"ok": false,
+				"unavailable": true,
+				"error": "Community level is no longer available.",
+			}
 	var validation := validate_level(candidate)
 	if not validation.ok:
 		return validation
@@ -312,11 +336,15 @@ func _on_exact_completed(
 	var decoded := _decode_response(result, response_code, body)
 	if not decoded.ok:
 		_confirmed_levels.erase(level_id)
+		if bool(decoded.get("unavailable", false)):
+			_evict_cached_entry(level_id)
 		level_checked.emit(level_id, false, {}, decoded.error)
 		return
 	var parsed := parse_exact_response(decoded.value, level_id)
 	if not parsed.ok:
 		_confirmed_levels.erase(level_id)
+		if bool(parsed.get("unavailable", false)):
+			_evict_cached_entry(level_id)
 		level_checked.emit(level_id, false, {}, parsed.error)
 		return
 	var level: Dictionary = parsed.level
@@ -357,13 +385,20 @@ func _decode_response(
 	body: PackedByteArray
 ) -> Dictionary:
 	if result != HTTPRequest.RESULT_SUCCESS:
-		return {"ok": false, "error": "Community service is offline."}
-	if response_code < 200 or response_code >= 300:
-		if response_code == 404 or response_code == 410:
-			return {"ok": false, "error": "Community level is no longer available."}
 		return {
 			"ok": false,
-			"error": "Community service returned HTTP %d." % response_code,
+			"error": "Community service is offline.",
+		}
+	if response_code < 200 or response_code >= 300:
+		var unavailable := response_code == 404 or response_code == 410
+		return {
+			"ok": false,
+			"unavailable": unavailable,
+			"error": (
+				"Community level is no longer available."
+				if unavailable
+				else "Community service returned HTTP %d." % response_code
+			),
 		}
 	var parser := JSON.new()
 	var parse_error := parser.parse(body.get_string_from_utf8())
@@ -373,9 +408,9 @@ func _decode_response(
 
 
 func _load_cache() -> void:
-	if not FileAccess.file_exists(CACHE_PATH):
+	if not FileAccess.file_exists(_cache_path):
 		return
-	var cache_file := FileAccess.open(CACHE_PATH, FileAccess.READ)
+	var cache_file := FileAccess.open(_cache_path, FileAccess.READ)
 	if cache_file == null:
 		return
 	var value: Variant = JSON.parse_string(cache_file.get_as_text())
@@ -390,7 +425,7 @@ func _load_cache() -> void:
 
 
 func _save_cache() -> bool:
-	var cache_file := FileAccess.open(CACHE_PATH, FileAccess.WRITE)
+	var cache_file := FileAccess.open(_cache_path, FileAccess.WRITE)
 	if cache_file == null:
 		push_warning("Could not save the Community Lab cache.")
 		return false
@@ -400,6 +435,21 @@ func _save_cache() -> bool:
 		"entries": _entries,
 	}))
 	cache_file.close()
+	return true
+
+
+func _evict_cached_entry(level_id: String) -> bool:
+	var retained: Array[Dictionary] = []
+	var evicted := false
+	for entry in _entries:
+		if String(entry.get("id", "")) == level_id:
+			evicted = true
+			continue
+		retained.append(entry)
+	if not evicted:
+		return false
+	_entries = retained
+	_save_cache()
 	return true
 
 

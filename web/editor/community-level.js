@@ -36,6 +36,61 @@ export function resolvePaintCode(tool, currentCode, erase = false) {
   return LEVEL_SCHEMA.codes.includes(tool) ? tool : currentCode;
 }
 
+export function interpolateGridIndexes(startIndex, endIndex) {
+  const cellCount = LEVEL_SCHEMA.columns * LEVEL_SCHEMA.rows;
+  if (
+    !Number.isInteger(startIndex) ||
+    !Number.isInteger(endIndex) ||
+    startIndex < 0 ||
+    endIndex < 0 ||
+    startIndex >= cellCount ||
+    endIndex >= cellCount
+  ) {
+    return [];
+  }
+
+  const startRow = Math.floor(startIndex / LEVEL_SCHEMA.columns);
+  const startColumn = startIndex % LEVEL_SCHEMA.columns;
+  const endRow = Math.floor(endIndex / LEVEL_SCHEMA.columns);
+  const endColumn = endIndex % LEVEL_SCHEMA.columns;
+  const rowDistance = endRow - startRow;
+  const columnDistance = endColumn - startColumn;
+  const steps = Math.max(Math.abs(rowDistance), Math.abs(columnDistance));
+  if (steps === 0) return [startIndex];
+
+  const indexes = [];
+  for (let step = 0; step <= steps; step += 1) {
+    const row = Math.round(startRow + (rowDistance * step) / steps);
+    const column = Math.round(startColumn + (columnDistance * step) / steps);
+    const index = row * LEVEL_SCHEMA.columns + column;
+    if (indexes.at(-1) !== index) indexes.push(index);
+  }
+  return indexes;
+}
+
+export function gridNavigationTarget(index, key) {
+  const cellCount = LEVEL_SCHEMA.columns * LEVEL_SCHEMA.rows;
+  if (
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index >= cellCount
+  ) {
+    return null;
+  }
+
+  const row = Math.floor(index / LEVEL_SCHEMA.columns);
+  const column = index % LEVEL_SCHEMA.columns;
+  if (key === "ArrowLeft") return column > 0 ? index - 1 : index;
+  if (key === "ArrowRight") {
+    return column < LEVEL_SCHEMA.columns - 1 ? index + 1 : index;
+  }
+  if (key === "ArrowUp") return row > 0 ? index - LEVEL_SCHEMA.columns : index;
+  if (key === "ArrowDown") {
+    return row < LEVEL_SCHEMA.rows - 1 ? index + LEVEL_SCHEMA.columns : index;
+  }
+  return null;
+}
+
 export function countLayout(layout) {
   let populated = 0;
   let destructible = 0;
