@@ -1054,6 +1054,51 @@ func _test_touch_controls() -> void:
 	menu.queue_free()
 	await get_tree().process_frame
 
+	var touch_lab: CommunityLab = COMMUNITY_LAB_SCENE.instantiate()
+	var touch_level := _community_level_fixture()
+	var touch_lab_entries: Array[Dictionary] = [touch_level]
+	var lab_back_requests := [0]
+	touch_lab.back_requested.connect(
+		func() -> void:
+			lab_back_requests[0] += 1
+	)
+	get_tree().root.add_child(touch_lab)
+	await get_tree().process_frame
+	touch_lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_READY,
+		touch_lab_entries,
+		"2026-08-24T00:00:00Z",
+		""
+	)
+	second_touch.position = Vector2(128, 70)
+	touch_lab._gui_input(second_touch)
+	_check(
+		String(touch_lab.get("_checking_id")).is_empty(),
+		"A secondary touch does not activate a Community Lab level."
+	)
+	tap.position = Vector2(128, 70)
+	touch_lab._gui_input(tap)
+	_check(
+		String(touch_lab.get("_checking_id")) == String(touch_level.id),
+		"A primary tap activates the selected Community Lab level."
+	)
+	tap.position = Vector2(128, 217)
+	touch_lab._gui_input(tap)
+	second_touch.position = tap.position
+	touch_lab._gui_input(second_touch)
+	_check(
+		lab_back_requests[0] == 1,
+		"A primary tap returns from Community Lab without a secondary duplicate."
+	)
+	var exact_request := CommunityCatalog.get("_exact_request") as HTTPRequest
+	if is_instance_valid(exact_request):
+		exact_request.cancel_request()
+	CommunityCatalog.set("_exact_in_flight", false)
+	CommunityCatalog.set("_requested_id", "")
+	touch_lab.queue_free()
+	await get_tree().process_frame
+
 	var touch_scores: HighScoresScreen = HIGH_SCORES_SCENE.instantiate()
 	get_tree().root.add_child(touch_scores)
 	await get_tree().process_frame
