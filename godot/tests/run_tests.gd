@@ -65,6 +65,7 @@ func _run() -> void:
 	await _test_brick_audio_pitch()
 	await _test_power_up_chip()
 	await _test_result_screens()
+	await _test_score_storage_failure()
 	await _test_gameplay_scene()
 	await _test_manual_restart_resets_session()
 	await _test_physics_signal_wiring()
@@ -907,11 +908,17 @@ func _test_game_session() -> void:
 
 func _test_leaderboard_client() -> void:
 	_check(
-		Leaderboard.MAX_SCORE == 999999,
-		"The leaderboard rejects scores that cannot fit the HUD."
+		Leaderboard.MAX_SCORE == 212690,
+		"The leaderboard uses the current protected-drop campaign ceiling."
+	)
+	_check(
+		_calculate_campaign_score_ceilings()
+		== Leaderboard.MAX_SCORE_BY_STAGE,
+		"Every stage ceiling follows the current capsule budget."
 	)
 	var valid_submission := {
 		"run_id": "0198d71f-1ef3-7000-8000-000000000002",
+		"run_token": "test-ticket",
 		"player_name": "@PLAYER_ONE",
 		"score": 12345,
 		"outcome": "game_over",
@@ -942,6 +949,13 @@ func _test_leaderboard_client() -> void:
 	_check(
 		not Leaderboard.validate_submission(impossible_score).is_empty(),
 		"Impossible leaderboard scores are rejected before networking."
+	)
+	var impossible_stage_score := valid_submission.duplicate()
+	impossible_stage_score.completed_stage = 1
+	impossible_stage_score.score = 6451
+	_check(
+		not Leaderboard.validate_submission(impossible_stage_score).is_empty(),
+		"Scores above the completed-stage ceiling are rejected."
 	)
 	var invalid_clear := valid_submission.duplicate()
 	invalid_clear.outcome = "campaign_clear"
@@ -983,6 +997,103 @@ func _test_leaderboard_client() -> void:
 		"Rate-limited submissions remain queued for retry."
 	)
 	restored_client.free()
+
+	var storage_fails := [true]
+	var storage_client := LeaderboardClient.new()
+	storage_client.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			return not storage_fails[0]
+	)
+	var failed_run := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000099",
+		"score": 100,
+		"outcome": "game_over",
+		"completed_stage": 1,
+		"start_stage": 1,
+		"eligible": false,
+	}
+	_check(
+		not storage_client.record_score(failed_run, "GUEST"),
+		"Local persistence failure is returned to the caller."
+	)
+	_check(
+		storage_client.has_save_failure(failed_run.run_id),
+		"Failed terminal scores remain available for recovery."
+	)
+	storage_fails[0] = false
+	_check(
+		storage_client.retry_failed_score(failed_run.run_id),
+		"Retrying after storage recovery persists the terminal score."
+	)
+	_check(
+		not storage_client.has_save_failure(failed_run.run_id)
+		and storage_client.has_local_score(failed_run.run_id),
+		"Successful recovery clears the explicit save failure."
+	)
+	storage_client.free()
+
+	var proof_write_count := [0]
+	var proof_client := LeaderboardClient.new()
+	proof_client.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			proof_write_count[0] += 1
+			return proof_write_count[0] != 2
+	)
+	var proof_run := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000098",
+		"score": 100,
+		"outcome": "game_over",
+		"completed_stage": 1,
+		"start_stage": 1,
+		"eligible": true,
+	}
+	proof_client.set("_run_tickets", {
+		proof_run.run_id: {
+			"run_token": "test-ticket",
+			"expires_unix": int(Time.get_unix_time_from_system()) + 3600,
+		},
+	})
+	_check(
+		not proof_client.record_score(proof_run, "@PROOFTEST"),
+		"Failure to persist queued proof propagates to the caller."
+	)
+	_check(
+		proof_client.has_save_failure(proof_run.run_id),
+		"Second-write failure remains recoverable instead of reporting success."
+	)
+	proof_client.free()
+
+	var late_client := LeaderboardClient.new()
+	late_client.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			return true
+	)
+	var late_run := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000097",
+		"score": 100,
+		"outcome": "game_over",
+		"completed_stage": 1,
+		"start_stage": 1,
+		"eligible": true,
+	}
+	late_client.set("_ticket_requested", {late_run.run_id: true})
+	_check(
+		late_client.record_score(late_run, "@LATETEST"),
+		"A terminal score waits while its pre-play ticket is still in flight."
+	)
+	late_client.set("_run_tickets", {
+		late_run.run_id: {
+			"run_token": "late-ticket",
+			"expires_unix": int(Time.get_unix_time_from_system()) + 3600,
+		},
+	})
+	late_client.set("_write_in_flight", true)
+	late_client.call("_submit_awaiting_ticket_record", late_run.run_id)
+	_check(
+		late_client.pending_submission_count() == 1,
+		"A late ticket moves the completed run into the persisted send queue."
+	)
+	late_client.free()
 
 
 func _test_player_profile() -> void:
@@ -1936,6 +2047,52 @@ func _test_result_screens() -> void:
 	await get_tree().process_frame
 
 
+func _test_score_storage_failure() -> void:
+	var original_handle := PlayerProfile.player_name
+	var storage_fails := [true]
+	Leaderboard.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			return not storage_fails[0]
+	)
+	PlayerProfile.player_name = "FAILTEST"
+
+	var main := MAIN_SCENE.instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	GameSession.award(100)
+	main.call("_finish_run", "game_over")
+	await get_tree().process_frame
+
+	var game_over := main.find_child(
+		"GameOver",
+		true,
+		false
+	) as GameOverScreen
+	_check(game_over != null, "A save failure still presents the terminal score.")
+	_check(
+		game_over.get("_score_status") == "SCORE NOT SAVED - RETRY",
+		"Local save failure replaces success-shaped score status."
+	)
+	_check(
+		game_over.call("_get_option_label", 1) == "RETRY SAVE",
+		"Local save failure exposes a deterministic recovery action."
+	)
+
+	storage_fails[0] = false
+	game_over.set("_selected_index", 1)
+	game_over.call("_activate_selected")
+	_check(
+		game_over.get("_score_status") == "SAVED ON THIS DEVICE",
+		"Retry Save confirms persistence only after storage recovers."
+	)
+
+	main.queue_free()
+	await get_tree().process_frame
+	Leaderboard.set_state_writer_for_tests(Callable())
+	PlayerProfile.player_name = original_handle
+	GameSession.new_game()
+
+
 func _test_gameplay_scene() -> void:
 	GameSession.new_game()
 	var gameplay: Gameplay = GAMEPLAY_SCENE.instantiate()
@@ -2599,6 +2756,31 @@ func _get_destructible_layout_count(stage_number: int) -> int:
 			if character != " " and character != "X":
 				count += 1
 	return count
+
+
+func _calculate_campaign_score_ceilings() -> Array[int]:
+	var total := 0
+	var ceilings: Array[int] = []
+	for stage_number in range(1, LevelCatalog.STAGE_COUNT + 1):
+		var destructible_bricks := 0
+		for row in LevelCatalog.get_layout(stage_number):
+			for code in row:
+				if code == " ":
+					continue
+				var definition := BrickRules.get_definition(
+					code,
+					stage_number
+				)
+				if definition.indestructible:
+					continue
+				destructible_bricks += 1
+				total += int(definition.score)
+		total += (
+			CapsuleDropDirector.calculate_budget(destructible_bricks)
+			* Gameplay.POWER_UP_SCORE
+		)
+		ceilings.append(total)
+	return ceilings
 
 
 func _find_power_up_brick(level: Level01, power_type: int) -> Brick:

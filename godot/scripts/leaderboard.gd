@@ -15,11 +15,21 @@ signal score_submitted(run_id: String, created: bool)
 signal submission_failed(run_id: String, message: String)
 
 const MAX_ENTRIES := 100
-const MAX_SCORE := 999999
+const MAX_SCORE := 212690
+const MAX_SCORE_BY_STAGE := [
+	6450, 10820, 13780, 16220, 23070, 27350, 31200, 36480, 38320,
+	44720, 49410, 52810, 61280, 68740, 74120, 79510, 82600, 92270,
+	95910, 102260, 112040, 119930, 131530, 140190, 142380, 152240,
+	158560, 163900, 176360, 187270, 196200, 206570, 212690,
+]
 const SUPABASE_URL := "https://ugkygoijpqrreooylpnc.supabase.co"
 const SUPABASE_PUBLISHABLE_KEY := "sb_publishable_GMQxCnYtLe3qCkV1Nc3N2w_5JXyve-X"
+const START_RUN_URL := SUPABASE_URL + "/functions/v1/start-run"
 const SUBMISSION_URL := SUPABASE_URL + "/functions/v1/submit-score"
 const STATE_PATH := "user://leaderboard.json"
+const STATE_FILE := "leaderboard.json"
+const STATE_TEMP_FILE := "leaderboard.json.tmp"
+const STATE_BACKUP_FILE := "leaderboard.json.bak"
 const REQUEST_TIMEOUT := 8.0
 
 const STATE_LOADING := &"loading"
@@ -33,15 +43,24 @@ var _cached_entries: Array[Dictionary] = []
 var _cached_latest_score: Dictionary = {}
 var _local_scores: Array[Dictionary] = []
 var _pending_submissions: Array[Dictionary] = []
+var _run_tickets: Dictionary = {}
+var _awaiting_ticket_records: Dictionary = {}
+var _failed_records: Dictionary = {}
+var _submitted_runs: Dictionary = {}
+var _ticket_queue: Array[String] = []
+var _ticket_requested: Dictionary = {}
 var _fetched_at := ""
 var _latest_fetched_at := ""
 var _top_request: HTTPRequest
 var _latest_request: HTTPRequest
 var _write_request: HTTPRequest
+var _ticket_request: HTTPRequest
 var _top_in_flight := false
 var _latest_in_flight := false
 var _write_in_flight := false
 var _active_run_id := ""
+var _active_ticket_run_id := ""
+var _state_writer: Callable
 
 
 func _ready() -> void:
@@ -49,6 +68,7 @@ func _ready() -> void:
 	_top_request = _create_request(_on_top_scores_completed)
 	_latest_request = _create_request(_on_latest_score_completed)
 	_write_request = _create_request(_on_submission_completed)
+	_ticket_request = _create_request(_on_ticket_completed)
 
 
 func request_top_scores(limit: int = MAX_ENTRIES) -> void:
@@ -97,6 +117,23 @@ func request_latest_score() -> void:
 		)
 
 
+func register_run(run_id: String) -> void:
+	if (
+		DisplayServer.get_name() == "headless"
+		or not _is_valid_run_id(run_id)
+		or _ticket_requested.has(run_id)
+		or _ticket_is_current(run_id)
+	):
+		return
+	_ticket_requested[run_id] = true
+	_ticket_queue.append(run_id)
+	_flush_ticket_request()
+
+
+func set_state_writer_for_tests(writer: Callable) -> void:
+	_state_writer = writer
+
+
 func record_score(run_result: Dictionary, player_name: String) -> bool:
 	var local_entry := {
 		"run_id": String(run_result.get("run_id", "")),
@@ -116,14 +153,41 @@ func record_score(run_result: Dictionary, player_name: String) -> bool:
 		local_entry.player_name = "GUEST"
 	_remember_local_score(local_entry)
 	if not _save_state():
+		_failed_records[local_entry.run_id] = {
+			"run_result": run_result.duplicate(true),
+			"player_name": player_name,
+		}
+		submission_failed.emit(
+			local_entry.run_id,
+			"Score could not be saved on this device."
+		)
 		return false
+	_failed_records.erase(local_entry.run_id)
 
 	if (
 		not bool(run_result.get("eligible", false))
 		or local_entry.player_name == "GUEST"
 	):
 		return true
-	return submit_score(local_entry)
+	if not _ticket_is_current(local_entry.run_id):
+		if _ticket_requested.has(local_entry.run_id):
+			_awaiting_ticket_records[local_entry.run_id] = {
+				"submission": local_entry.duplicate(true),
+				"run_result": run_result.duplicate(true),
+				"player_name": player_name,
+			}
+		return true
+
+	local_entry["run_token"] = String(
+		_run_tickets[local_entry.run_id].run_token
+	)
+	if not submit_score(local_entry):
+		_failed_records[local_entry.run_id] = {
+			"run_result": run_result.duplicate(true),
+			"player_name": player_name,
+		}
+		return false
+	return true
 
 
 func submit_score(submission: Dictionary) -> bool:
@@ -149,6 +213,16 @@ func submit_score(submission: Dictionary) -> bool:
 	return true
 
 
+func retry_failed_score(run_id: String) -> bool:
+	if not _failed_records.has(run_id):
+		return false
+	var failed: Dictionary = _failed_records[run_id]
+	return record_score(
+		failed.run_result as Dictionary,
+		String(failed.player_name)
+	)
+
+
 func retry_pending_submissions() -> void:
 	_flush_pending_submission()
 
@@ -171,6 +245,21 @@ func pending_submission_count() -> int:
 
 func has_pending_submission(run_id: String) -> bool:
 	return _has_pending_submission(run_id)
+
+
+func has_save_failure(run_id: String) -> bool:
+	return _failed_records.has(run_id)
+
+
+func has_local_score(run_id: String) -> bool:
+	for score in _local_scores:
+		if score.get("run_id", "") == run_id:
+			return true
+	return false
+
+
+func is_score_submitted(run_id: String) -> bool:
+	return _submitted_runs.has(run_id)
 
 
 func validate_submission(submission: Dictionary) -> String:
@@ -200,6 +289,8 @@ func validate_submission(submission: Dictionary) -> String:
 	var completed_stage: int = submission.completed_stage
 	if completed_stage < 1 or completed_stage > LevelCatalog.STAGE_COUNT:
 		return "Completed stage is outside the campaign."
+	if score > MAX_SCORE_BY_STAGE[completed_stage - 1]:
+		return "Leaderboard score is too high for the completed stage."
 	if (
 		outcome == "campaign_clear"
 		and completed_stage != LevelCatalog.STAGE_COUNT
@@ -211,6 +302,8 @@ func validate_submission(submission: Dictionary) -> String:
 		or int(submission.start_stage) != 1
 	):
 		return "Only runs started at Stage 1 can be submitted."
+	if String(submission.get("run_token", "")).is_empty():
+		return "Leaderboard submission requires a run ticket."
 	return ""
 
 
@@ -235,6 +328,68 @@ func _flush_pending_submission() -> void:
 		push_warning(message)
 		submission_failed.emit(_active_run_id, message)
 		_active_run_id = ""
+
+
+func _flush_ticket_request() -> void:
+	if not _active_ticket_run_id.is_empty() or _ticket_queue.is_empty():
+		return
+	_active_ticket_run_id = _ticket_queue.pop_front()
+	var error := _ticket_request.request(
+		START_RUN_URL,
+		_request_headers(),
+		HTTPClient.METHOD_POST,
+		JSON.stringify({"run_id": _active_ticket_run_id})
+	)
+	if error != OK:
+		_ticket_requested.erase(_active_ticket_run_id)
+		_active_ticket_run_id = ""
+		_flush_ticket_request()
+
+
+func _on_ticket_completed(
+	result: int,
+	response_code: int,
+	_headers: PackedStringArray,
+	body: PackedByteArray
+) -> void:
+	var run_id := _active_ticket_run_id
+	_active_ticket_run_id = ""
+	if result == HTTPRequest.RESULT_SUCCESS and response_code in [200, 201]:
+		var decoded := _decode_json(body)
+		if (
+			decoded.ok
+			and decoded.value is Dictionary
+			and String(decoded.value.get("run_id", "")) == run_id
+			and not String(decoded.value.get("run_token", "")).is_empty()
+		):
+			_run_tickets[run_id] = {
+				"run_token": String(decoded.value.run_token),
+				"expires_unix": int(Time.get_unix_time_from_system()) + 21600,
+			}
+			_submit_awaiting_ticket_record(run_id)
+	_ticket_requested.erase(run_id)
+	if not _run_tickets.has(run_id):
+		_awaiting_ticket_records.erase(run_id)
+	_flush_ticket_request()
+
+
+func _submit_awaiting_ticket_record(run_id: String) -> void:
+	if not _awaiting_ticket_records.has(run_id):
+		return
+	var awaiting: Dictionary = _awaiting_ticket_records[run_id]
+	var submission: Dictionary = awaiting.submission
+	submission["run_token"] = String(_run_tickets[run_id].run_token)
+	_awaiting_ticket_records.erase(run_id)
+	if submit_score(submission):
+		return
+	_failed_records[run_id] = {
+		"run_result": (awaiting.run_result as Dictionary).duplicate(true),
+		"player_name": String(awaiting.player_name),
+	}
+	submission_failed.emit(
+		run_id,
+		"Score proof could not be saved for retry."
+	)
 
 
 func _on_top_scores_completed(
@@ -355,6 +510,8 @@ func _on_submission_completed(
 
 	var response: Dictionary = decoded.value[0]
 	_remove_pending_submission(run_id)
+	_run_tickets.erase(run_id)
+	_submitted_runs[run_id] = true
 	_save_state()
 	score_submitted.emit(run_id, bool(response.get("created", false)))
 	_flush_pending_submission()
@@ -417,22 +574,77 @@ func _restore_state(state: Dictionary) -> void:
 
 
 func _save_state() -> bool:
-	var state_file := FileAccess.open(STATE_PATH, FileAccess.WRITE)
-	if state_file == null:
-		push_error(
-			"Could not save leaderboard state: %s"
-			% error_string(FileAccess.get_open_error())
-		)
-		return false
-	state_file.store_string(JSON.stringify({
+	var state := {
 		"top_scores": _cached_entries,
 		"fetched_at": _fetched_at,
 		"latest_score": _cached_latest_score,
 		"latest_fetched_at": _latest_fetched_at,
 		"local_scores": _local_scores,
 		"pending_submissions": _pending_submissions,
-	}))
+	}
+	if _state_writer.is_valid():
+		return bool(_state_writer.call(state))
+	return _write_state_file(state)
+
+
+func _write_state_file(state: Dictionary) -> bool:
+	var directory := DirAccess.open("user://")
+	if directory == null:
+		push_error(
+			"Could not open leaderboard directory: %s"
+			% error_string(DirAccess.get_open_error())
+		)
+		return false
+	if directory.file_exists(STATE_TEMP_FILE):
+		directory.remove(STATE_TEMP_FILE)
+
+	var temp_path := "user://%s" % STATE_TEMP_FILE
+	var state_file := FileAccess.open(temp_path, FileAccess.WRITE)
+	if state_file == null:
+		push_error(
+			"Could not save leaderboard state: %s"
+			% error_string(FileAccess.get_open_error())
+		)
+		return false
+	state_file.store_string(JSON.stringify(state))
+	state_file.flush()
+	var write_error := state_file.get_error()
 	state_file.close()
+	if write_error != OK:
+		directory.remove(STATE_TEMP_FILE)
+		push_error(
+			"Could not write leaderboard state: %s"
+			% error_string(write_error)
+		)
+		return false
+
+	if directory.file_exists(STATE_BACKUP_FILE):
+		directory.remove(STATE_BACKUP_FILE)
+	var had_state := directory.file_exists(STATE_FILE)
+	if had_state:
+		var backup_error := directory.rename(
+			STATE_FILE,
+			STATE_BACKUP_FILE
+		)
+		if backup_error != OK:
+			directory.remove(STATE_TEMP_FILE)
+			push_error(
+				"Could not protect leaderboard state: %s"
+				% error_string(backup_error)
+			)
+			return false
+
+	var promote_error := directory.rename(STATE_TEMP_FILE, STATE_FILE)
+	if promote_error != OK:
+		if had_state:
+			directory.rename(STATE_BACKUP_FILE, STATE_FILE)
+		push_error(
+			"Could not replace leaderboard state: %s"
+			% error_string(promote_error)
+		)
+		return false
+	if had_state:
+		directory.remove(STATE_BACKUP_FILE)
 	return true
 
 
@@ -467,6 +679,7 @@ func _normalize_submission(submission: Dictionary) -> Dictionary:
 		"outcome": String(submission.get("outcome", "")),
 		"completed_stage": int(submission.get("completed_stage", 0)),
 		"start_stage": int(submission.get("start_stage", 0)),
+		"run_token": String(submission.get("run_token", "")),
 	}
 
 
@@ -592,6 +805,15 @@ func _is_valid_run_id(run_id: String) -> bool:
 			if not "0123456789abcdef".contains(character):
 				return false
 	return true
+
+
+func _ticket_is_current(run_id: String) -> bool:
+	if not _run_tickets.has(run_id):
+		return false
+	return (
+		int(_run_tickets[run_id].get("expires_unix", 0))
+		> int(Time.get_unix_time_from_system())
+	)
 
 
 func _rpc_url(function_name: String) -> String:

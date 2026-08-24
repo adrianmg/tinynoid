@@ -76,12 +76,14 @@ func _present_stage_clear() -> void:
 
 func _start_new_game(start_level: int = 1) -> void:
 	GameSession.new_game(start_level)
+	_register_eligible_run()
 	_show_gameplay()
 
 
 func _restart_current_stage() -> void:
 	var current_level := GameSession.level
 	GameSession.new_game(current_level)
+	_register_eligible_run()
 	_show_gameplay()
 
 
@@ -101,13 +103,13 @@ func _finish_run(outcome: String) -> void:
 		return
 
 	if not PlayerProfile.has_player_name():
-		Leaderboard.record_score(run_result, "GUEST")
+		_record_terminal_score(run_result, "GUEST")
 		_pending_submission = run_result
 		_pending_terminal = outcome
 		_show_name_entry()
 		return
 
-	Leaderboard.record_score(
+	_record_terminal_score(
 		run_result,
 		PlayerProfile.get_display_name()
 	)
@@ -139,9 +141,10 @@ func _on_name_confirmed(player_name: String) -> void:
 		_show_main_menu()
 		return
 
-	Leaderboard.record_score(_pending_submission, player_name)
+	var saved := _record_terminal_score(_pending_submission, player_name)
 	var terminal := _pending_terminal
-	_clear_pending_terminal()
+	if saved:
+		_clear_pending_terminal()
 	_present_terminal(terminal)
 
 
@@ -150,9 +153,10 @@ func _on_guest_selected() -> void:
 		_show_main_menu()
 		return
 
-	Leaderboard.record_score(_pending_submission, "GUEST")
+	var saved := _record_terminal_score(_pending_submission, "GUEST")
 	var terminal := _pending_terminal
-	_clear_pending_terminal()
+	if saved:
+		_clear_pending_terminal()
 	_present_terminal(terminal)
 
 
@@ -161,6 +165,22 @@ func _present_terminal(outcome: String) -> void:
 		_present_stage_clear()
 	else:
 		_present_game_over()
+
+
+func _register_eligible_run() -> void:
+	if GameSession.can_submit_score():
+		Leaderboard.register_run(GameSession.run_id)
+
+
+func _record_terminal_score(
+	run_result: Dictionary,
+	player_name: String
+) -> bool:
+	var saved := Leaderboard.record_score(run_result, player_name)
+	if not saved:
+		_pending_submission = run_result.duplicate(true)
+		push_warning("Terminal score remains in memory because local save failed.")
+	return saved
 
 
 func _clear_pending_terminal() -> void:

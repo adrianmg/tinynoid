@@ -2,15 +2,17 @@
 
 The `scores` table has no direct anonymous access. Two bounded read RPCs expose
 only the latest entry or Top 100. Score writes pass through the public
-`submit-score` Edge Function, which applies an IP rate limit before calling the
-server-only database function.
+`submit-score` Edge Function. Eligible Stage 1 runs first receive a six-hour,
+one-time ticket from `start-run`.
 
 The publishable key in the Godot client is public by design. Never add a
 Supabase secret or service-role key to the repository.
 
-A six-digit sanity cap, idempotent run IDs, and a network rate limit reject
-casual forged or replayed submissions. They do not make gameplay
-server-authoritative; the public leaderboard remains a best-effort arcade board.
+The database locks and consumes each ticket atomically, validates the
+completed-stage score ceiling, and charges the five-per-hour network quota only
+for a first-created score. Same-run retries return the original result without
+using more quota. This rejects casual forged or replayed submissions without
+claiming fully server-authoritative gameplay.
 
 ## Moderation
 

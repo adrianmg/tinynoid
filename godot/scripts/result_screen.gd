@@ -7,7 +7,7 @@ const BLUE := Color("#287fc4")
 const CYAN := Color("#74ddff")
 const WHITE := Color("#f7f4ff")
 const YELLOW := Color("#ffd84a")
-const OPTION_Y := [151, 166, 181]
+const OPTION_Y := [145, 158, 171, 184]
 
 var result_title := ""
 var result_color := WHITE
@@ -125,11 +125,15 @@ func _select_relative(direction: int) -> void:
 
 func _activate_selected() -> void:
 	UiAudio.play_confirm()
-	if _selected_index == 0:
+	var action := _get_option_label(_selected_index)
+	if action == primary_label:
 		_request_primary_action()
-		return
-
-	if _selected_index == 1:
+	elif action == "RETRY SAVE":
+		Leaderboard.retry_failed_score(GameSession.run_id)
+		_update_score_status()
+		_selected_index = 0
+		queue_redraw()
+	elif action == "SHARE ON TWITTER":
 		var twitter_opened := ScoreShare.share_on_twitter(
 			PlayerProfile.get_display_name(),
 			GameSession.score,
@@ -141,20 +145,23 @@ func _activate_selected() -> void:
 			else "TWITTER UNAVAILABLE"
 		)
 		queue_redraw()
-		return
-
-	if _share_png.is_empty():
-		_share_status = "PREPARING SCORE CARD"
+	elif action == "SHARE":
+		if _share_png.is_empty():
+			_share_status = "PREPARING SCORE CARD"
+			queue_redraw()
+			return
+		var shared := ScoreShare.share(
+			PlayerProfile.get_display_name(),
+			GameSession.score,
+			share_outcome,
+			_share_png
+		)
+		_share_status = (
+			"SHARE OPENED"
+			if shared
+			else "SHARE UNAVAILABLE"
+		)
 		queue_redraw()
-		return
-	var shared := ScoreShare.share(
-		PlayerProfile.get_display_name(),
-		GameSession.score,
-		share_outcome,
-		_share_png
-	)
-	_share_status = "SHARE OPENED" if shared else "SHARE UNAVAILABLE"
-	queue_redraw()
 
 
 func _request_primary_action() -> void:
@@ -170,15 +177,16 @@ func _prepare_share_image() -> void:
 
 
 func _update_score_status() -> void:
-	if Leaderboard.has_pending_submission(GameSession.run_id):
-		_score_status = "SENDING TO HIGH SCORES"
-	elif (
-		GameSession.run_start_stage == 1
-		and PlayerProfile.has_player_name()
-	):
+	if Leaderboard.has_save_failure(GameSession.run_id):
+		_score_status = "SCORE NOT SAVED - RETRY"
+	elif Leaderboard.is_score_submitted(GameSession.run_id):
 		_score_status = "ADDED TO HIGH SCORES"
-	else:
+	elif Leaderboard.has_pending_submission(GameSession.run_id):
+		_score_status = "SENDING TO HIGH SCORES"
+	elif Leaderboard.has_local_score(GameSession.run_id):
 		_score_status = "SAVED ON THIS DEVICE"
+	else:
+		_score_status = "SCORE NOT SAVED"
 
 
 func _on_score_submitted(run_id: String, _created: bool) -> void:
@@ -192,11 +200,7 @@ func _on_score_submitted(run_id: String, _created: bool) -> void:
 func _on_submission_failed(run_id: String, _message: String) -> void:
 	if run_id != GameSession.run_id:
 		return
-	_score_status = (
-		"SAVED HERE - WILL RETRY"
-		if Leaderboard.has_pending_submission(run_id)
-		else "SAVED ON THIS DEVICE"
-	)
+	_update_score_status()
 	queue_redraw()
 	call_deferred("_prepare_share_image")
 
@@ -218,18 +222,23 @@ func _get_option_at(position: Vector2) -> int:
 
 
 func _option_count() -> int:
-	return 3 if share_enabled else 1
+	return _get_option_labels().size()
 
 
 func _get_option_label(option_index: int) -> String:
-	match option_index:
-		0:
-			return primary_label
-		1:
-			return "SHARE ON TWITTER"
-		2:
-			return "SHARE"
-	return ""
+	var labels := _get_option_labels()
+	return labels[option_index] if option_index < labels.size() else ""
+
+
+func _get_option_labels() -> Array[String]:
+	var labels: Array[String] = [primary_label]
+	if not share_enabled:
+		return labels
+	if Leaderboard.has_save_failure(GameSession.run_id):
+		labels.append("RETRY SAVE")
+	labels.append("SHARE ON TWITTER")
+	labels.append("SHARE")
+	return labels
 
 
 func _draw_identity_row(player_name: String) -> void:

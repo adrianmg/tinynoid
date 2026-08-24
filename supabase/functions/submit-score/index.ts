@@ -68,6 +68,17 @@ async function digestNetworkKey(
 }
 
 
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    encoder.encode(value),
+  );
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+
 Deno.serve(async (request: Request): Promise<Response> => {
   const origin = request.headers.get("origin");
   if (!isAllowedOrigin(origin)) {
@@ -109,39 +120,19 @@ Deno.serve(async (request: Request): Promise<Response> => {
     },
   });
 
-  const { data: rateLimitRows, error: rateLimitError } = await admin.rpc(
-    "consume_score_rate_limit",
-    {
-      p_key_hash: keyHash,
-      p_limit: 5,
-      p_window_seconds: 3600,
-    },
-  );
-  if (rateLimitError || !rateLimitRows?.length) {
-    console.error("Score rate limit failed.", rateLimitError);
-    return jsonResponse({ error: "Score service is unavailable." }, 503, origin);
-  }
-  const rateLimit = rateLimitRows[0] as {
-    allowed: boolean;
-    retry_after_seconds: number;
-  };
-  if (!rateLimit.allowed) {
-    return jsonResponse(
-      { error: "Too many score submissions. Try again later." },
-      429,
-      origin,
-      { "Retry-After": String(rateLimit.retry_after_seconds) },
-    );
-  }
-
   let payload: JsonRecord;
   try {
     payload = await request.json() as JsonRecord;
   } catch {
     return jsonResponse({ error: "Request body must be JSON." }, 400, origin);
   }
+  if (typeof payload.run_token !== "string") {
+    return jsonResponse({ error: "run_token is required." }, 400, origin);
+  }
   const { data, error } = await admin.rpc("submit_score", {
     p_run_id: payload.run_id,
+    p_run_token_hash: await sha256(payload.run_token),
+    p_rate_key: keyHash,
     p_player_name: payload.player_name,
     p_score: payload.score,
     p_outcome: payload.outcome,
@@ -149,6 +140,17 @@ Deno.serve(async (request: Request): Promise<Response> => {
     p_start_stage: payload.start_stage,
   });
   if (error) {
+    if (
+      error.code === "P0001"
+      && error.message === "score_rate_limit_exceeded"
+    ) {
+      return jsonResponse(
+        { error: "Too many score submissions. Try again later." },
+        429,
+        origin,
+        { "Retry-After": "3600" },
+      );
+    }
     if (["22023", "23514", "22P02"].includes(error.code)) {
       return jsonResponse({ error: error.message }, 400, origin);
     }
