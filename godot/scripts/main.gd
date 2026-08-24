@@ -14,11 +14,12 @@ var _current_screen: Node
 var _pending_submission: Dictionary = {}
 var _pending_terminal := ""
 var _deep_link_id := ""
+var _community_retry_id := ""
 
 
 func _ready() -> void:
 	GameSession.new_game()
-	CommunityCatalog.level_checked.connect(_on_deep_link_checked)
+	CommunityCatalog.level_checked.connect(_on_level_checked)
 	_show_main_menu()
 	_try_community_deep_link()
 
@@ -57,12 +58,14 @@ func _show_gameplay() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 
-func _show_community_lab() -> void:
+func _show_community_lab(notice: String = "") -> void:
 	MusicController.play_menu()
 	var community_lab: CommunityLab = COMMUNITY_LAB_SCENE.instantiate()
 	_replace_screen(community_lab)
 	community_lab.level_requested.connect(_start_community_game)
 	community_lab.back_requested.connect(_show_main_menu)
+	if not notice.is_empty():
+		community_lab.show_notice(notice)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -107,12 +110,36 @@ func _start_new_game(start_level: int = 1) -> void:
 
 func _restart_current_stage() -> void:
 	if GameSession.is_community_run():
-		GameSession.restart_current_run()
-	else:
-		var current_level := GameSession.level
-		GameSession.new_game(current_level)
-		_register_eligible_run()
+		_retry_community_level()
+		return
+	var current_level := GameSession.level
+	GameSession.new_game(current_level)
+	_register_eligible_run()
 	_show_gameplay()
+
+
+func _retry_community_level() -> void:
+	var level_id := String(GameSession.community_level.get("id", ""))
+	if not CommunityCatalogClient.is_valid_id(level_id):
+		_fail_community_retry("Community level is no longer available.")
+		return
+	_community_retry_id = level_id
+	_show_community_lab("VERIFYING RETRY ONLINE")
+	if (
+		not CommunityCatalog.request_exact(level_id)
+		and _community_retry_id == level_id
+	):
+		_fail_community_retry("Could not start the retry freshness check.")
+
+
+func _fail_community_retry(message: String) -> void:
+	_community_retry_id = ""
+	GameSession.new_game()
+	_show_community_lab(
+		message
+		if not message.is_empty()
+		else "Community level is no longer available."
+	)
 
 
 func _continue_campaign() -> void:
@@ -231,12 +258,19 @@ func _try_community_deep_link() -> void:
 	CommunityCatalog.request_exact(_deep_link_id)
 
 
-func _on_deep_link_checked(
+func _on_level_checked(
 	level_id: String,
 	playable: bool,
 	level_data: Dictionary,
-	_message: String
+	message: String
 ) -> void:
+	if level_id == _community_retry_id:
+		_community_retry_id = ""
+		if playable and CommunityCatalog.is_confirmed_playable(level_id):
+			_start_community_game(level_data)
+		else:
+			_fail_community_retry(message)
+		return
 	if level_id != _deep_link_id:
 		return
 	_deep_link_id = ""

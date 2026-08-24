@@ -765,6 +765,12 @@ func _test_community_catalog() -> void:
 		"Community sessions are explicit unranked runs without score ids."
 	)
 	_check(
+		not GameSession.restart_current_run()
+		and GameSession.is_community_run()
+		and GameSession.community_level.id == pending_level.id,
+		"Community sessions cannot restart directly from cached level data."
+	)
+	_check(
 		GameSession.capture_run_result("game_over").is_empty(),
 		"Community runs never capture leaderboard results."
 	)
@@ -806,6 +812,30 @@ func _test_community_catalog() -> void:
 		not Leaderboard.validate_submission(community_submission).is_empty(),
 		"Leaderboard validation rejects community submissions."
 	)
+
+	var main: Node = MAIN_SCENE.instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	GameSession.new_community_game(pending_level, 2468)
+	main.set("_community_retry_id", pending_level.id)
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community level is no longer available."
+	)
+	await get_tree().process_frame
+	var retry_screen: Node = main.get("_current_screen")
+	_check(
+		not GameSession.is_community_run()
+		and retry_screen is CommunityLab
+		and retry_screen.get_status_text()
+			== "COMMUNITY LEVEL IS NO LONGER AVAILABLE.",
+		"A hidden community retry clears stale gameplay and returns to the Lab."
+	)
+	main.queue_free()
+	await get_tree().process_frame
 	GameSession.new_game()
 
 

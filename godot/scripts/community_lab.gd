@@ -23,6 +23,7 @@ var _selected_index := 0
 var _scroll_offset := 0
 var _message := ""
 var _checking_id := ""
+var _notice := ""
 
 
 func _ready() -> void:
@@ -114,6 +115,8 @@ func get_selected_index() -> int:
 func get_status_text() -> String:
 	if not _checking_id.is_empty():
 		return "VERIFYING ONLINE - PLEASE WAIT"
+	if not _notice.is_empty():
+		return _notice.to_upper()
 	match _state:
 		CommunityCatalog.STATE_LOADING:
 			return "LOADING COMMUNITY LEVELS"
@@ -186,12 +189,18 @@ func _activate_selected() -> void:
 		return
 	if not _checking_id.is_empty():
 		return
+	_notice = ""
 	_checking_id = String(_entries[_selected_index].id)
 	_message = ""
 	queue_redraw()
 	if not CommunityCatalog.request_exact(_checking_id):
 		_checking_id = ""
 		queue_redraw()
+
+
+func show_notice(message: String) -> void:
+	_notice = message
+	queue_redraw()
 
 
 func _ensure_selection_visible() -> void:

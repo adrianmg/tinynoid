@@ -72,11 +72,11 @@ func new_community_game(
 	_emit_state_changed()
 
 
-func restart_current_run() -> void:
+func restart_current_run() -> bool:
 	if is_community_run():
-		new_community_game(community_level)
-	else:
-		new_game(level)
+		return false
+	new_game(level)
+	return true
 
 
 func is_community_run() -> bool:
