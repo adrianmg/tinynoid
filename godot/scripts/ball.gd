@@ -100,12 +100,6 @@ func reset_for_serve(paddle: PaddleController) -> void:
 	_follow_paddle()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("launch") and not _active:
-		launch()
-		get_viewport().set_input_as_handled()
-
-
 func _physics_process(delta: float) -> void:
 	if not _active:
 		_follow_paddle()
