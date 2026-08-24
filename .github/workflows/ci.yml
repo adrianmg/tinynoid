@@ -40,6 +40,9 @@ jobs:
       - name: Run test suite
         run: '"$GODOT_BIN" --headless --path godot res://tests/test_runner.tscn'
 
+      - name: Test community editor
+        run: node --test web/tests/*.test.mjs
+
       - name: Validate Web preset
         run: |
           "$GODOT_BIN" --headless --quiet --path godot \

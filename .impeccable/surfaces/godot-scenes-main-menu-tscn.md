@@ -16,8 +16,8 @@ few seconds using touch, mouse, keyboard, or controller.
 
 ## Content and constraints
 
-- Play, Window mode, and four Sound levels (`III`, `II`, `I`, `OFF`) are the
-  only menu options.
+- Play, Community Lab, High Scores, Window mode, and four Sound levels (`III`,
+  `II`, `I`, `OFF`) are the menu options.
 - Left/Right changes the selected starting stage from 1 through 33.
 - F2 selects 2x, F3 selects 3x, and F11 or Alt+Enter toggles fullscreen.
 - Escape returns here from gameplay and quits when this menu is already active.
@@ -27,7 +27,9 @@ few seconds using touch, mouse, keyboard, or controller.
 - Tapping an option selects and activates it in one deliberate press.
 - The menu theme is a mysterious, dreamy 88 BPM space overture with sparse
   melody, fifth shimmer, and alternating-bar percussion.
-- The subtitle reads `A TINY TRIBUTE FROM ADRIAN MATO TO ARKANOID`.
+- The subtitle reads `A TINY ARKANOID TRIBUTE BY @ADRIANMG`.
+- A live line below the option panel shows the latest global player and score,
+  with clear loading, empty, and offline states.
 - The bottom contains only `ARROW KEYS TO MOVE & SELECT`,
   `ENTER / SPACE / TAP TO SELECT`, and Escape instructions.
 
@@ -35,8 +37,12 @@ few seconds using touch, mouse, keyboard, or controller.
 
 The menu behaves like a cartridge boot screen inside the same segmented arena.
 A cyan-edged focus band moves between terse bitmap options while the global
-display shortcuts remain printed below the panel.
+display shortcuts remain printed below the panel. Community Lab opens a
+dedicated cartridge-style chooser rather than overloading campaign stage
+selection.
 
 ## Unresolved decisions
 
-Additional settings and remapping controls are outside this prototype.
+Player identity is captured contextually after a terminal score rather than
+before play. Additional settings and remapping controls remain outside this
+prototype.

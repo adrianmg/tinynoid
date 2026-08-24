@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>$GODOT_PROJECT_NAME</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: #f7f4ff;
+	background: #050611;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#avatar-credit {
+	position: fixed;
+	right: 6px;
+	bottom: 4px;
+	z-index: 2;
+	color: #74ddff;
+	font: 9px Arial, sans-serif;
+	opacity: 0.72;
+	text-decoration: none;
+}
+
+#avatar-credit:focus,
+#avatar-credit:hover {
+	opacity: 1;
+	text-decoration: underline;
+}
+
+#status {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #050611;
+	font: 14px Arial, sans-serif;
+}
+
+#status-progress {
+	width: min(320px, 60vw);
+}
+
+#status-notice {
+	display: none;
+	max-width: 40rem;
+	padding: 1rem;
+	text-align: center;
+}
+		</style>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+		<a
+			id="avatar-credit"
+			href="https://unavatar.io"
+			target="_blank"
+			rel="noopener"
+		>Avatars by Unavatar</a>
+		<noscript>Your browser does not support JavaScript.</noscript>
+		<div id="status">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+		<script src="$GODOT_URL"></script>
+		<script>
+const engine = new Engine($GODOT_CONFIG);
+const status = document.getElementById("status");
+const progress = document.getElementById("status-progress");
+const notice = document.getElementById("status-notice");
+
+engine.startGame({
+	onProgress(current, total) {
+		if (current > 0 && total > 0) {
+			progress.value = current;
+			progress.max = total;
+		} else {
+			progress.removeAttribute("value");
+		}
+	},
+}).then(() => {
+	status.remove();
+}, (error) => {
+	console.error(error);
+	progress.style.display = "none";
+	notice.style.display = "block";
+	notice.textContent = error instanceof Error
+		? error.message
+		: "TINYNOID could not start.";
+});
+		</script>
+	</body>
+</html>

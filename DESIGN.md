@@ -191,7 +191,8 @@ repeats and every effect that is already active.
 ### HUD
 
 A single compact top strip: score on the left, stage centered, and balls on the
-right. The product masthead is deliberately omitted during gameplay. The launch
+right. A named player's 8x8 palette-pixelated X avatar sits beside the ball
+count. The product masthead is deliberately omitted during gameplay. The launch
 cue reads `PRESS SPACEBAR OR TAP TO FIRE`, is centered at the bottom, and
 disappears immediately after launch. A primary touch positions the paddle; a
 drag steers it continuously; a tap launches held balls and fires Laser.
@@ -199,21 +200,24 @@ drag steers it continuously; a tap launches held balls and fires Laser.
 ### Result Panel
 
 A square ink panel floating inside the persistent arena frame. A colored top
-rule names the outcome, a blue bottom rule anchors it, and `PRESS FIRE` exposes
-the universal replay action.
+rule names the outcome, a blue bottom rule anchors it, and two compact actions
+offer replay/continue and score-card sharing. Sharing uses a generated image
+when the platform supports file sharing and falls back to a prefilled X post.
 
 ### Main Menu
 
 A compact ink panel inside the persistent arena frame. One cyan-edged selection
-band identifies focus. Options expose Play, Window mode, and Sound; shortcuts
-are printed below the panel. Help text names the keyboard and touch actions
-while direct option taps require no hover state. Left and Right change the
-starting stage from 1 through 33 when Play is selected.
+band identifies focus. Options expose Play, High Scores, Window mode, and
+Sound; shortcuts are printed below the panel. A single live line below the
+panel reports the latest globally submitted player and score. Help text names
+keyboard, touch, mouse, and controller actions while direct option taps require
+no hover state. Left and Right change the starting stage from 1 through 33 when
+Play is selected.
 Sound is rendered as `III`, `II`, `I`, or `OFF`, preserving the cartridge
 language while communicating four discrete master-volume states. The title
-subtitle reads `A TINY TRIBUTE FROM ADRIAN MATO TO ARKANOID`. Tapping an option
-activates it directly. The lower region contains `ARROW KEYS TO MOVE & SELECT`,
-`ENTER / SPACE / TAP TO SELECT`, and Escape instructions.
+subtitle reads `A TINY ARKANOID TRIBUTE BY @ADRIANMG`. The lower region
+contains `ARROW KEYS TO MOVE & SELECT`, `ENTER / SPACE / TAP TO SELECT`, and
+Escape instructions. Tapping an option activates it directly.
 Moving focus produces a short descending pulse tick; activating an option uses
 a brighter ascending two-note chirp. Both are generated, persistent across scene
 changes, and follow the menu Sound setting.
@@ -228,6 +232,20 @@ changes are the musical transition points. The menu alone uses a calm, melodic
 88 BPM space overture with an open minor progression, sparse two-bar melody,
 quiet fifth shimmer, quarter-rate arpeggio, alternating-bar percussion, and an
 octave lift.
+
+### Player Identity and Leaderboard
+
+The first terminal score asks for an X/Twitter handle through a physical
+keyboard or a visible cartridge-style glyph grid. The `@` prefix is shown and
+stored implicitly, while entry is limited to X-compatible `A-Z`, `0-9`, and
+`_`. Players may skip and remain guests. Named players receive their public X
+profile image, center-cropped to 8x8 and reduced to the TINYNOID palette; a
+neutral placeholder remains visible while lookup is unavailable.
+
+The leaderboard shows fourteen of the global Top 100 rows at once. Up and Down
+move one row, Left and Right move by a page, and the mouse wheel scrolls. The
+footer always exposes the visible range and whether results are live, cached
+offline, or local-only.
 
 ## Do's and Don'ts
 

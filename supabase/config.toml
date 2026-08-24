@@ -1,0 +1,16 @@
+project_id = "ugkygoijpqrreooylpnc"
+
+[functions.leaderboard]
+verify_jwt = false
+
+[functions.start-run]
+verify_jwt = false
+
+[functions.submit-score]
+verify_jwt = false
+
+[functions.submit-level]
+verify_jwt = false
+
+[functions.community-levels]
+verify_jwt = false

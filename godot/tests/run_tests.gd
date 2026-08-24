@@ -11,6 +11,11 @@ const MAIN_MENU_SCENE: PackedScene = preload("res://scenes/main_menu.tscn")
 const GAMEPLAY_SCENE: PackedScene = preload("res://scenes/gameplay.tscn")
 const GAME_OVER_SCENE: PackedScene = preload("res://scenes/game_over.tscn")
 const STAGE_CLEAR_SCENE: PackedScene = preload("res://scenes/stage_clear.tscn")
+const NAME_ENTRY_SCENE: PackedScene = preload("res://scenes/name_entry.tscn")
+const HIGH_SCORES_SCENE: PackedScene = preload("res://scenes/high_scores.tscn")
+const COMMUNITY_LAB_SCENE: PackedScene = preload(
+	"res://scenes/community_lab.tscn"
+)
 const BRICK_BREAK_EFFECT_SCENE: PackedScene = preload(
 	"res://scenes/effects/brick_break_effect.tscn"
 )
@@ -42,9 +47,13 @@ func _run() -> void:
 	await _test_audio_levels()
 	await _test_display_modes()
 	await _test_main_menu()
+	await _test_community_catalog()
+	await _test_name_entry_and_high_scores()
 	await _test_touch_controls()
 	await _test_campaign_routing()
 	await _test_game_session()
+	await _test_player_profile()
+	await _test_leaderboard_client()
 	await _test_level_catalog()
 	await _test_capsule_drop_director()
 	await _test_dynamic_power_up_flow()
@@ -60,6 +69,7 @@ func _run() -> void:
 	await _test_brick_audio_pitch()
 	await _test_power_up_chip()
 	await _test_result_screens()
+	await _test_score_storage_failure()
 	await _test_gameplay_scene()
 	await _test_manual_restart_resets_session()
 	await _test_physics_signal_wiring()
@@ -355,17 +365,25 @@ func _test_main_menu() -> void:
 	GameSession.new_game(1, 8080)
 	var menu: MainMenu = MAIN_MENU_SCENE.instantiate()
 	var start_requested := [-1]
+	var high_scores_requested := [false]
+	var community_lab_requested := [false]
 	var quit_requested := [false]
 	menu.start_requested.connect(
 		func(stage_number: int) -> void:
 			start_requested[0] = stage_number
 	)
+	menu.high_scores_requested.connect(
+		func() -> void: high_scores_requested[0] = true
+	)
+	menu.community_lab_requested.connect(
+		func() -> void: community_lab_requested[0] = true
+	)
 	menu.quit_requested.connect(func() -> void: quit_requested[0] = true)
 	get_tree().root.add_child(menu)
 	await get_tree().process_frame
 	_check(
-		MainMenu.SUBTITLE == "A tiny tribute from Adrian Mato to Arkanoid",
-		"The menu carries the requested tribute subtitle."
+		MainMenu.SUBTITLE == "A TINY ARKANOID TRIBUTE BY @ADRIANMG",
+		"The menu carries the concise tribute subtitle."
 	)
 	_check(
 		MainMenu.INSTRUCTION_LINES == [
@@ -378,6 +396,44 @@ func _test_main_menu() -> void:
 	_check(PixelFont.GLYPHS.has("."), "The bitmap font supports the domain period.")
 	_check(PixelFont.GLYPHS.has("/"), "The bitmap font supports the instruction slash.")
 	_check(PixelFont.GLYPHS.has("&"), "The bitmap font supports the instruction ampersand.")
+	_check(PixelFont.GLYPHS.has("@"), "The bitmap font supports player handles.")
+	_check(PixelFont.GLYPHS.has("#"), "The bitmap font supports leaderboard ranks.")
+	_check(PixelFont.GLYPHS.has("_"), "The bitmap font supports handle underscores.")
+	_check(PixelFont.GLYPHS.has("—"), "The bitmap font supports attribution separators.")
+	menu.call(
+		"_on_latest_score_updated",
+		Leaderboard.STATE_READY,
+		{"player_name": "@ADRIANMG", "score": 1235},
+		"2026-08-23T21:50:00"
+	)
+	_check(
+		menu.get_recent_score_text()
+		== "@ADRIANMG HIT 1235 POINTS RECENTLY",
+		"The main menu highlights the most recent player and score."
+	)
+	menu.call(
+		"_on_latest_score_updated",
+		Leaderboard.STATE_READY,
+		{
+			"player_name": "@123456789012345",
+			"score": Leaderboard.MAX_SCORE,
+		},
+		"2026-08-23T21:50:00"
+	)
+	_check(
+		PixelFont.measure(menu.get_recent_score_text()).x <= 256,
+		"The longest recent-score message fits the logical canvas."
+	)
+	menu.call(
+		"_on_latest_score_updated",
+		Leaderboard.STATE_EMPTY,
+		{},
+		"2026-08-23T21:50:00"
+	)
+	_check(
+		menu.get_recent_score_text() == "NO RECENT SCORES YET",
+		"The main menu handles an empty leaderboard."
+	)
 
 	var fire_event := InputEventAction.new()
 	fire_event.action = "launch"
@@ -416,22 +472,32 @@ func _test_main_menu() -> void:
 	down_event.pressed = true
 	var move_count := UiAudio.get_move_count()
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 1, "Menu navigation selects Window mode.")
+	_check(menu.get_selected_index() == 1, "Menu navigation selects Community Lab.")
 	_check(
 		UiAudio.get_move_count() == move_count + 1,
 		"Up/Down navigation plays the movement tick."
 	)
 
+	menu._unhandled_input(fire_event)
+	_check(community_lab_requested[0], "FIRE opens Community Lab.")
+
+	menu._unhandled_input(down_event)
+	_check(menu.get_selected_index() == 2, "Menu navigation selects High Scores.")
+	menu._unhandled_input(fire_event)
+	_check(high_scores_requested[0], "FIRE opens the global leaderboard.")
+
+	menu._unhandled_input(down_event)
+	_check(menu.get_selected_index() == 3, "Menu navigation selects Window mode.")
 	DisplayController.set_window_scale(2)
 	menu._unhandled_input(right_event)
 	_check(DisplayController.get_mode_label() == "3X", "Menu arrows change window mode.")
 	_check(
-		UiAudio.get_move_count() == move_count + 2,
+		UiAudio.get_move_count() >= move_count + 3,
 		"Left/Right interaction plays the movement tick."
 	)
 
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 2, "Menu navigation selects Sound.")
+	_check(menu.get_selected_index() == 4, "Menu navigation selects Sound.")
 	menu._unhandled_input(fire_event)
 	_check(menu.get_sound_level() == 2, "FIRE lowers Sound from III to II.")
 	menu._unhandled_input(fire_event)
@@ -487,7 +553,467 @@ func _test_main_menu() -> void:
 	)
 	_check(MusicController.get_current_track_id() == 0, "Escape restores menu music.")
 
+	application_menu = main.find_child(
+		"MainMenu",
+		true,
+		false
+	) as MainMenu
+	application_menu._unhandled_input(down_event)
+	application_menu._unhandled_input(fire_event)
+	await get_tree().process_frame
+	_check(
+		main.find_child("CommunityLab", true, false) != null,
+		"The main menu opens the Community Lab chooser."
+	)
+	var application_lab := main.find_child(
+		"CommunityLab",
+		true,
+		false
+	) as CommunityLab
+	application_lab._unhandled_input(cancel_event)
+	await get_tree().process_frame
+	_check(
+		main.find_child("MainMenu", true, false) != null,
+		"Escape returns from Community Lab to the main menu."
+	)
+
+	application_menu = main.find_child(
+		"MainMenu",
+		true,
+		false
+	) as MainMenu
+	application_menu._unhandled_input(down_event)
+	application_menu._unhandled_input(down_event)
+	application_menu._unhandled_input(fire_event)
+	await get_tree().process_frame
+	_check(
+		main.find_child("HighScores", true, false) != null,
+		"The main menu opens the Top 100 screen."
+	)
+	var application_scores := main.find_child(
+		"HighScores",
+		true,
+		false
+	) as HighScoresScreen
+	application_scores._unhandled_input(cancel_event)
+	await get_tree().process_frame
+	_check(
+		main.find_child("MainMenu", true, false) != null,
+		"Escape returns from High Scores to the main menu."
+	)
+
 	main.queue_free()
+	await get_tree().process_frame
+
+
+func _test_community_catalog() -> void:
+	var pending_level := _community_level_fixture()
+	var validation := CommunityCatalogClient.validate_level(pending_level)
+	_check(
+		validation.ok,
+		"The Community Lab accepts the canonical schema."
+	)
+	_check(
+		validation.level.layout.size() == 10
+		and String(validation.level.layout[0]).length() == 13,
+		"Validated community layouts preserve the 13 by 10 runtime grid."
+	)
+
+	var lowercase_name := pending_level.duplicate(true)
+	lowercase_name.level_name = "Neon Test"
+	_check(
+		not CommunityCatalogClient.validate_level(lowercase_name).ok,
+		"Community display fields must already be normalized uppercase."
+	)
+	var invalid_code := pending_level.duplicate(true)
+	invalid_code.layout[0] = "WWWWWWWW?...."
+	_check(
+		not CommunityCatalogClient.validate_level(invalid_code).ok,
+		"Community layouts reject non-native brick codes."
+	)
+	var too_few_bricks := pending_level.duplicate(true)
+	too_few_bricks.layout[0] = "WWWWWWW......"
+	too_few_bricks.populated_count = 7
+	_check(
+		not CommunityCatalogClient.validate_level(too_few_bricks).ok,
+		"Community layouts require eight destructible cells."
+	)
+	var quarantined := pending_level.duplicate(true)
+	quarantined.status = "quarantined"
+	_check(
+		not CommunityCatalogClient.validate_level(quarantined).ok,
+		"Quarantined community records are filtered out."
+	)
+	_check(
+		not CommunityCatalogClient.parse_exact_response(
+			[pending_level],
+			"cl_ffffffffffffffffffffffff"
+		).ok,
+		"An exact freshness response must match the requested id."
+	)
+	_check(
+		CommunityCatalogClient.parse_exact_response(
+			[],
+			pending_level.id
+		).get("unavailable", false),
+		"An empty exact response definitively marks a level unavailable."
+	)
+	_check(
+		CommunityCatalogClient.deep_link_id(
+			"?foo=bar&community=cl_0123456789abcdef01234567"
+		) == pending_level.id,
+		"Web community deep links accept canonical ids."
+	)
+
+	var catalog_client := CommunityCatalogClient.new()
+	get_tree().root.add_child(catalog_client)
+	await get_tree().process_frame
+	var test_cache_path := "user://community_levels_test.json"
+	catalog_client.set("_cache_path", test_cache_path)
+	_check(
+		catalog_client.call("_request_headers").size() == 2,
+		"Community requests include the publishable API key."
+	)
+	var response_body := JSON.stringify([pending_level]).to_utf8_buffer()
+	catalog_client.call(
+		"_on_catalog_completed",
+		HTTPRequest.RESULT_SUCCESS,
+		200,
+		PackedStringArray(),
+		response_body
+	)
+	_check(
+		not catalog_client.is_confirmed_playable(pending_level.id),
+		"Catalog and cached rows are not fresh enough to play."
+	)
+	catalog_client.set("_requested_id", pending_level.id)
+	catalog_client.call(
+		"_on_exact_completed",
+		HTTPRequest.RESULT_CANT_CONNECT,
+		0,
+		PackedStringArray(),
+		PackedByteArray()
+	)
+	_check(
+		catalog_client.cached_entries().size() == 1,
+		"Offline exact checks retain cached levels for later verification."
+	)
+	catalog_client.set("_requested_id", pending_level.id)
+	catalog_client.call(
+		"_on_exact_completed",
+		HTTPRequest.RESULT_SUCCESS,
+		200,
+		PackedStringArray(),
+		response_body
+	)
+	_check(
+		catalog_client.is_confirmed_playable(pending_level.id),
+		"An exact online lookup unlocks a pending or listed level."
+	)
+	catalog_client.set("_requested_id", pending_level.id)
+	catalog_client.call(
+		"_on_exact_completed",
+		HTTPRequest.RESULT_SUCCESS,
+		200,
+		PackedStringArray(),
+		JSON.stringify([quarantined]).to_utf8_buffer()
+	)
+	_check(
+		not catalog_client.is_confirmed_playable(pending_level.id)
+		and catalog_client.cached_entries().is_empty(),
+		"A definitive hidden response revokes playability and evicts memory cache."
+	)
+	var persisted_cache: Variant = JSON.parse_string(
+		FileAccess.get_file_as_string(test_cache_path)
+	)
+	_check(
+		persisted_cache is Dictionary
+		and persisted_cache.get("entries", []).is_empty(),
+		"A definitive hidden response evicts the persistent cache entry."
+	)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(test_cache_path))
+	catalog_client.queue_free()
+	await get_tree().process_frame
+
+	var lab: CommunityLab = COMMUNITY_LAB_SCENE.instantiate()
+	get_tree().root.add_child(lab)
+	await get_tree().process_frame
+	var lab_entries: Array[Dictionary] = [pending_level]
+	lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_STALE,
+		lab_entries,
+		"2026-08-23T22:00:00Z",
+		"offline"
+	)
+	_check(
+		lab.get_entries().size() == 1
+		and lab.get_status_text() == "OFFLINE CACHE - RECHECK REQUIRED",
+		"The chooser labels cached offline content and requires verification."
+	)
+	var original_catalog_entries := CommunityCatalog.cached_entries()
+	var singleton_catalog_entry: Array[Dictionary] = [pending_level]
+	CommunityCatalog.set("_entries", singleton_catalog_entry)
+	lab.set("_checking_id", pending_level.id)
+	lab.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community service is offline."
+	)
+	_check(
+		lab.get_entries().size() == 1
+		and lab.get_status_text() == "OFFLINE CACHE - RECHECK REQUIRED",
+		"An offline exact failure retains and labels the cached level."
+	)
+	var empty_catalog_entries: Array[Dictionary] = []
+	CommunityCatalog.set("_entries", empty_catalog_entries)
+	lab.set("_checking_id", pending_level.id)
+	lab.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community level is no longer available."
+	)
+	_check(
+		lab.get_entries().is_empty(),
+		"A definitively hidden level disappears from the chooser."
+	)
+	_check(
+		lab.get_status_text() != "OFFLINE CACHE - RECHECK REQUIRED",
+		"A definitively hidden level is not labeled as offline cache."
+	)
+	CommunityCatalog.set("_entries", original_catalog_entries)
+	lab.set("_notice", "")
+	var no_entries: Array[Dictionary] = []
+	lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_LOADING,
+		no_entries,
+		"",
+		""
+	)
+	_check(
+		lab.get_status_text() == "LOADING COMMUNITY LEVELS",
+		"The chooser exposes its loading state."
+	)
+	lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_EMPTY,
+		no_entries,
+		"2026-08-23T22:00:00Z",
+		""
+	)
+	_check(
+		lab.get_status_text() == "NO COMMUNITY LEVELS YET",
+		"The chooser exposes an empty catalog state."
+	)
+	lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_ERROR,
+		no_entries,
+		"",
+		"offline"
+	)
+	_check(
+		lab.get_status_text() == "COMMUNITY SERVICE OFFLINE",
+		"The chooser exposes an uncached offline error state."
+	)
+	lab.queue_free()
+	await get_tree().process_frame
+
+	GameSession.new_community_game(pending_level, 2468)
+	_check(
+		GameSession.is_community_run()
+		and not GameSession.can_submit_score()
+		and GameSession.run_id.is_empty(),
+		"Community sessions are explicit unranked runs without score ids."
+	)
+	_check(
+		not GameSession.restart_current_run()
+		and GameSession.is_community_run()
+		and GameSession.community_level.id == pending_level.id,
+		"Community sessions cannot restart directly from cached level data."
+	)
+	_check(
+		GameSession.capture_run_result("game_over").is_empty(),
+		"Community runs never capture leaderboard results."
+	)
+	var level: Level01 = LEVEL_SCENE.instantiate()
+	get_tree().root.add_child(level)
+	await get_tree().process_frame
+	_check(
+		level.get_brick_count() == 8
+		and level.get_destructible_brick_count() == 8,
+		"Community dots become spaces at the existing brick spawn seam."
+	)
+	_check(
+		level.get_stage_name() == pending_level.level_name,
+		"Community runtime generation retains its level attribution."
+	)
+	level.queue_free()
+	await get_tree().process_frame
+	var community_hud := RetroHud.new()
+	get_tree().root.add_child(community_hud)
+	await get_tree().process_frame
+	_check(
+		community_hud.get_community_intro_time_left() > 5.0,
+		"Community attribution remains visible long enough to read."
+	)
+	community_hud.queue_free()
+	await get_tree().process_frame
+
+	var community_submission := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000003",
+		"run_kind": "community",
+		"community_id": pending_level.id,
+		"player_name": "@PLAYER_ONE",
+		"score": 100,
+		"outcome": "game_over",
+		"completed_stage": 1,
+		"start_stage": 1,
+	}
+	_check(
+		not Leaderboard.validate_submission(community_submission).is_empty(),
+		"Leaderboard validation rejects community submissions."
+	)
+
+	var main: Node = MAIN_SCENE.instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	GameSession.new_community_game(pending_level, 2468)
+	main.set("_community_retry_id", pending_level.id)
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community level is no longer available."
+	)
+	await get_tree().process_frame
+	var retry_screen: Node = main.get("_current_screen")
+	_check(
+		not GameSession.is_community_run()
+		and retry_screen is CommunityLab
+		and retry_screen.get_status_text()
+			== "COMMUNITY LEVEL IS NO LONGER AVAILABLE.",
+		"A hidden community retry clears stale gameplay and returns to the Lab."
+	)
+	GameSession.new_community_game(pending_level, 2468)
+	main.set("_community_retry_id", pending_level.id)
+	main.call("_show_main_menu")
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		true,
+		pending_level,
+		""
+	)
+	await get_tree().process_frame
+	_check(
+		main.get("_current_screen") is MainMenu
+		and String(main.get("_community_retry_id")).is_empty(),
+		"A retry response cannot reopen gameplay after navigation."
+	)
+	main.set("_deep_link_id", pending_level.id)
+	main.call("_show_high_scores")
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		true,
+		pending_level,
+		""
+	)
+	await get_tree().process_frame
+	_check(
+		main.get("_current_screen") is HighScoresScreen
+		and String(main.get("_deep_link_id")).is_empty(),
+		"A deep-link response cannot replace a newer navigation target."
+	)
+	main.queue_free()
+	await get_tree().process_frame
+	GameSession.new_game()
+
+
+func _test_name_entry_and_high_scores() -> void:
+	var stored_handle := PlayerProfile.player_name
+	_check(
+		NameEntryScreen.TITLE == "X / TWITTER HANDLE",
+		"Handle entry explicitly names X and Twitter."
+	)
+	_check(
+		NameEntryScreen.HANDLE_HINT == "@ IS ADDED FOR YOU",
+		"Handle entry explains that the at sign is implicit."
+	)
+	var name_entry: NameEntryScreen = NAME_ENTRY_SCENE.instantiate()
+	name_entry.configure("@PLAYER", 1235, true)
+	get_tree().root.add_child(name_entry)
+	await get_tree().process_frame
+	name_entry.call("_append_character", "1")
+	_check(
+		name_entry.get_player_name() == "PLAYER1",
+		"The name-entry screen supports controller-style character entry."
+	)
+	name_entry.call("_delete_character")
+	_check(
+		name_entry.get_player_name() == "PLAYER",
+		"The name-entry screen supports deletion."
+	)
+	name_entry.set("_selected_row", NameEntryScreen.GRID_ROWS - 1)
+	name_entry.set("_selected_column", 4)
+	name_entry.call("_move_horizontal", 1)
+	_check(
+		name_entry.get("_selected_column") == 0,
+		"The partial final handle row wraps without selecting empty cells."
+	)
+	name_entry.queue_free()
+	await get_tree().process_frame
+
+	PlayerProfile.player_name = ""
+	var main := MAIN_SCENE.instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	GameSession.award(1235)
+	main.call("_finish_run", "game_over")
+	await get_tree().process_frame
+	_check(
+		main.find_child("NameEntry", true, false) != null,
+		"A first-time handle prompt appears only after a terminal score."
+	)
+	main.queue_free()
+	await get_tree().process_frame
+	PlayerProfile.player_name = stored_handle
+	GameSession.new_game()
+
+	var entries: Array[Dictionary] = []
+	for entry_index in range(20):
+		entries.append({
+			"rank": entry_index + 1,
+			"player_name": "PLAYER%d" % entry_index,
+			"score": 20000 - entry_index,
+			"completed_stage": 3,
+		})
+	var high_scores: HighScoresScreen = HIGH_SCORES_SCENE.instantiate()
+	get_tree().root.add_child(high_scores)
+	await get_tree().process_frame
+	high_scores.call(
+		"_on_top_scores_updated",
+		Leaderboard.STATE_READY,
+		entries,
+		"2026-08-23T22:00:00"
+	)
+	high_scores.call("_select_relative", 15)
+	_check(
+		high_scores.get_selected_index() == 15,
+		"Leaderboard selection moves through the Top 100."
+	)
+	_check(
+		high_scores.get_scroll_offset() == 2,
+		"Leaderboard scroll follows selection beyond the visible rows."
+	)
+	high_scores.queue_free()
 	await get_tree().process_frame
 
 
@@ -502,11 +1028,11 @@ func _test_touch_controls() -> void:
 
 	var tap := InputEventScreenTouch.new()
 	tap.index = 0
-	tap.position = Vector2(128, 94)
+	tap.position = Vector2(128, 86)
 	tap.pressed = true
 	var second_touch := InputEventScreenTouch.new()
 	second_touch.index = 1
-	second_touch.position = Vector2(128, 94)
+	second_touch.position = Vector2(128, 86)
 	second_touch.pressed = true
 	_check(GamePointer.is_primary_press(tap), "A primary tap maps to a pointer press.")
 	_check(
@@ -526,6 +1052,80 @@ func _test_touch_controls() -> void:
 	menu._gui_input(tap)
 	_check(tapped_stage[0] == 1, "Tapping Play activates the selected stage.")
 	menu.queue_free()
+	await get_tree().process_frame
+
+	var touch_lab: CommunityLab = COMMUNITY_LAB_SCENE.instantiate()
+	var touch_level := _community_level_fixture()
+	var touch_lab_entries: Array[Dictionary] = [touch_level]
+	var lab_back_requests := [0]
+	touch_lab.back_requested.connect(
+		func() -> void:
+			lab_back_requests[0] += 1
+	)
+	get_tree().root.add_child(touch_lab)
+	await get_tree().process_frame
+	touch_lab.call(
+		"_on_catalog_updated",
+		CommunityCatalog.STATE_READY,
+		touch_lab_entries,
+		"2026-08-24T00:00:00Z",
+		""
+	)
+	second_touch.position = Vector2(128, 70)
+	touch_lab._gui_input(second_touch)
+	_check(
+		String(touch_lab.get("_checking_id")).is_empty(),
+		"A secondary touch does not activate a Community Lab level."
+	)
+	tap.position = Vector2(128, 70)
+	touch_lab._gui_input(tap)
+	_check(
+		String(touch_lab.get("_checking_id")) == String(touch_level.id),
+		"A primary tap activates the selected Community Lab level."
+	)
+	tap.position = Vector2(128, 217)
+	touch_lab._gui_input(tap)
+	second_touch.position = tap.position
+	touch_lab._gui_input(second_touch)
+	_check(
+		lab_back_requests[0] == 1,
+		"A primary tap returns from Community Lab without a secondary duplicate."
+	)
+	var exact_request := CommunityCatalog.get("_exact_request") as HTTPRequest
+	if is_instance_valid(exact_request):
+		exact_request.cancel_request()
+	CommunityCatalog.set("_exact_in_flight", false)
+	CommunityCatalog.set("_requested_id", "")
+	touch_lab.queue_free()
+	await get_tree().process_frame
+
+	var touch_scores: HighScoresScreen = HIGH_SCORES_SCENE.instantiate()
+	get_tree().root.add_child(touch_scores)
+	await get_tree().process_frame
+	var touch_entries: Array[Dictionary] = []
+	for entry_index in range(20):
+		touch_entries.append({
+			"rank": entry_index + 1,
+			"player_name": "@PLAYER%d" % entry_index,
+			"score": 20000 - entry_index,
+			"completed_stage": 3,
+		})
+	touch_scores.call(
+		"_on_top_scores_updated",
+		Leaderboard.STATE_READY,
+		touch_entries,
+		"2026-08-24T00:00:00"
+	)
+	var score_drag := InputEventScreenDrag.new()
+	score_drag.index = 0
+	score_drag.position = Vector2(128, 140)
+	score_drag.relative = Vector2(0, -20)
+	touch_scores._gui_input(score_drag)
+	_check(
+		touch_scores.get_selected_index() == 2,
+		"Swiping the Top 100 advances touch selection."
+	)
+	touch_scores.queue_free()
 	await get_tree().process_frame
 
 	GameSession.new_game(1, 8080)
@@ -568,6 +1168,8 @@ func _test_touch_controls() -> void:
 	game_over.new_game_requested.connect(func() -> void: retry_requested[0] = true)
 	get_tree().root.add_child(game_over)
 	await get_tree().process_frame
+	tap.position = Vector2(128, 151)
+	tap.pressed = true
 	Input.parse_input_event(tap)
 	await get_tree().process_frame
 	_check(retry_requested[0], "A tap retries from Game Over.")
@@ -581,6 +1183,7 @@ func _test_touch_controls() -> void:
 	stage_clear.replay_requested.connect(func() -> void: continue_requested[0] = true)
 	get_tree().root.add_child(stage_clear)
 	await get_tree().process_frame
+	tap.position = Vector2(128, 151)
 	tap.pressed = true
 	Input.parse_input_event(tap)
 	await get_tree().process_frame
@@ -659,6 +1262,16 @@ func _test_game_session() -> void:
 	_check(session.level == 17, "A new game can start from a selected stage.")
 	var selected_stage_seed := session.run_seed
 	session.mark_starter_capsule_spawned()
+	_check(
+		not session.can_submit_score(),
+		"Runs started after Stage 1 are not globally eligible."
+	)
+	var local_only_result := session.capture_run_result("game_over")
+	_check(
+		not local_only_result.is_empty()
+		and not local_only_result.eligible,
+		"Later-stage runs still produce a local result."
+	)
 	session.add_ball()
 	session.advance_level()
 	_check(session.level == 18, "Campaign progression advances one stage.")
@@ -686,9 +1299,259 @@ func _test_game_session() -> void:
 		session.register_ball_lost() == GameSessionState.BallLossOutcome.GAME_OVER,
 		"The third lost ball ends the game."
 	)
+	var run_id := session.run_id
+	var submission := session.capture_run_result("game_over")
+	_check(
+		not submission.is_empty()
+		and submission.run_id == run_id
+		and submission.start_stage == 1,
+		"Stage 1 runs capture one terminal leaderboard submission."
+	)
+	_check(
+		session.capture_run_result("game_over").is_empty(),
+		"A run cannot be captured twice."
+	)
+	_check(
+		run_id.length() == 36
+		and run_id.substr(14, 1) == "4",
+		"Leaderboard run IDs are random UUIDv4 values."
+	)
 
 	session.queue_free()
 	await get_tree().process_frame
+
+
+func _test_leaderboard_client() -> void:
+	_check(
+		Leaderboard.MAX_SCORE == 212690,
+		"The leaderboard uses the current protected-drop campaign ceiling."
+	)
+	_check(
+		_calculate_campaign_score_ceilings()
+		== Leaderboard.MAX_SCORE_BY_STAGE,
+		"Every stage ceiling follows the current capsule budget."
+	)
+	var valid_submission := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000002",
+		"run_token": "test-ticket",
+		"player_name": "@PLAYER_ONE",
+		"score": 12345,
+		"outcome": "game_over",
+		"completed_stage": 7,
+		"start_stage": 1,
+	}
+	_check(
+		Leaderboard.validate_submission(valid_submission).is_empty(),
+		"Valid leaderboard submissions pass client validation."
+	)
+
+	var invalid_run_id := valid_submission.duplicate()
+	invalid_run_id.run_id = "not-a-uuid"
+	_check(
+		not Leaderboard.validate_submission(invalid_run_id).is_empty(),
+		"Leaderboard submissions require an idempotent UUID."
+	)
+
+	var invalid_name := valid_submission.duplicate()
+	invalid_name.player_name = "NO!"
+	_check(
+		not Leaderboard.validate_submission(invalid_name).is_empty(),
+		"Leaderboard names are restricted to the pixel-font character set."
+	)
+
+	var impossible_score := valid_submission.duplicate()
+	impossible_score.score = Leaderboard.MAX_SCORE + 1
+	_check(
+		not Leaderboard.validate_submission(impossible_score).is_empty(),
+		"Impossible leaderboard scores are rejected before networking."
+	)
+	var impossible_stage_score := valid_submission.duplicate()
+	impossible_stage_score.completed_stage = 1
+	impossible_stage_score.score = 6451
+	_check(
+		not Leaderboard.validate_submission(impossible_stage_score).is_empty(),
+		"Scores above the completed-stage ceiling are rejected."
+	)
+	var invalid_clear := valid_submission.duplicate()
+	invalid_clear.outcome = "campaign_clear"
+	_check(
+		not Leaderboard.validate_submission(invalid_clear).is_empty(),
+		"Campaign-clear submissions require Stage 33."
+	)
+
+	var serialized_state := JSON.stringify({
+		"pending_submissions": [valid_submission],
+	})
+	var restored_state: Variant = JSON.parse_string(serialized_state)
+	var restored_client := LeaderboardClient.new()
+	restored_client.call("_restore_state", restored_state)
+	_check(
+		restored_client.pending_submission_count() == 1,
+		"Offline submissions survive a JSON save-and-reload cycle."
+	)
+	restored_client.call("_remember_local_score", {
+		"run_id": valid_submission.run_id,
+		"player_name": "@PLAYER_ONE",
+		"score": 12345,
+		"outcome": "game_over",
+		"completed_stage": 7,
+		"start_stage": 1,
+		"submitted_at": "2026-08-23T22:00:00Z",
+		"local": true,
+	})
+	_check(
+		restored_client.cached_local_scores().size() == 1,
+		"Local results remain available when the global board is offline."
+	)
+	_check(
+		restored_client.call("_is_permanent_submission_failure", 400),
+		"Invalid submissions are removed instead of blocking the queue."
+	)
+	_check(
+		not restored_client.call("_is_permanent_submission_failure", 429),
+		"Rate-limited submissions remain queued for retry."
+	)
+	restored_client.free()
+
+	var storage_fails := [true]
+	var storage_client := LeaderboardClient.new()
+	storage_client.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			return not storage_fails[0]
+	)
+	var failed_run := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000099",
+		"score": 100,
+		"outcome": "game_over",
+		"completed_stage": 1,
+		"start_stage": 1,
+		"eligible": false,
+	}
+	_check(
+		not storage_client.record_score(failed_run, "GUEST"),
+		"Local persistence failure is returned to the caller."
+	)
+	_check(
+		storage_client.has_save_failure(failed_run.run_id),
+		"Failed terminal scores remain available for recovery."
+	)
+	storage_fails[0] = false
+	_check(
+		storage_client.retry_failed_score(failed_run.run_id),
+		"Retrying after storage recovery persists the terminal score."
+	)
+	_check(
+		not storage_client.has_save_failure(failed_run.run_id)
+		and storage_client.has_local_score(failed_run.run_id),
+		"Successful recovery clears the explicit save failure."
+	)
+	storage_client.free()
+
+	var proof_write_count := [0]
+	var proof_client := LeaderboardClient.new()
+	proof_client.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			proof_write_count[0] += 1
+			return proof_write_count[0] != 2
+	)
+	var proof_run := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000098",
+		"score": 100,
+		"outcome": "game_over",
+		"completed_stage": 1,
+		"start_stage": 1,
+		"eligible": true,
+	}
+	proof_client.set("_run_tickets", {
+		proof_run.run_id: {
+			"run_token": "test-ticket",
+			"expires_unix": int(Time.get_unix_time_from_system()) + 3600,
+		},
+	})
+	_check(
+		not proof_client.record_score(proof_run, "@PROOFTEST"),
+		"Failure to persist queued proof propagates to the caller."
+	)
+	_check(
+		proof_client.has_save_failure(proof_run.run_id),
+		"Second-write failure remains recoverable instead of reporting success."
+	)
+	proof_client.free()
+
+	var late_client := LeaderboardClient.new()
+	late_client.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			return true
+	)
+	var late_run := {
+		"run_id": "0198d71f-1ef3-7000-8000-000000000097",
+		"score": 100,
+		"outcome": "game_over",
+		"completed_stage": 1,
+		"start_stage": 1,
+		"eligible": true,
+	}
+	late_client.set("_ticket_requested", {late_run.run_id: true})
+	_check(
+		late_client.record_score(late_run, "@LATETEST"),
+		"A terminal score waits while its pre-play ticket is still in flight."
+	)
+	late_client.set("_run_tickets", {
+		late_run.run_id: {
+			"run_token": "late-ticket",
+			"expires_unix": int(Time.get_unix_time_from_system()) + 3600,
+		},
+	})
+	late_client.set("_write_in_flight", true)
+	late_client.call("_submit_awaiting_ticket_record", late_run.run_id)
+	_check(
+		late_client.pending_submission_count() == 1,
+		"A late ticket moves the completed run into the persisted send queue."
+	)
+	late_client.free()
+
+
+func _test_player_profile() -> void:
+	_check(
+		PlayerProfileState.normalize_name("  @adrian_mg  ")
+		== "ADRIAN_MG",
+		"X handles are stored without the implicit at sign."
+	)
+	_check(
+		PlayerProfileState.get_name_error("@ADRIAN_MG").is_empty(),
+		"Handles are valid player names."
+	)
+	_check(
+		PlayerProfileState.format_handle("adrian_mg") == "@ADRIAN_MG",
+		"X handles display with an implicit at sign."
+	)
+	_check(
+		AvatarCacheState.avatar_url("@ADRIAN_MG")
+		== "https://unavatar.io/x/ADRIAN_MG?fallback=false",
+		"Real avatar lookup uses the canonical bare X handle."
+	)
+	var source_avatar := Image.create(16, 12, false, Image.FORMAT_RGBA8)
+	source_avatar.fill(Color("#ed734c"))
+	var pixelated_avatar := AvatarCacheState.pixelate(source_avatar)
+	_check(
+		pixelated_avatar.get_width() == AvatarCacheState.AVATAR_SIZE
+		and pixelated_avatar.get_height() == AvatarCacheState.AVATAR_SIZE,
+		"Resolved avatars are center-cropped into an 8x8 pixel texture."
+	)
+	_check(
+		not PlayerProfileState.get_name_error("NO-DASH").is_empty(),
+		"X handles reject characters Twitter does not support."
+	)
+	_check(
+		not PlayerProfileState.get_name_error("NO!").is_empty(),
+		"Unsupported player-name glyphs are rejected."
+	)
+	_check(
+		ScoreShare._x_intent_url("PLAYER scored 10 points").begins_with(
+			"https://x.com/intent/post?"
+		),
+		"Score sharing has an X intent fallback."
+	)
 
 
 func _test_level_catalog() -> void:
@@ -1529,24 +2392,120 @@ func _test_result_screens() -> void:
 	var fire_event := InputEventAction.new()
 	fire_event.action = "launch"
 	fire_event.pressed = true
+	var down_event := InputEventAction.new()
+	down_event.action = "ui_down"
+	down_event.pressed = true
+	var up_event := InputEventAction.new()
+	up_event.action = "ui_up"
+	up_event.pressed = true
 
 	var game_over: GameOverScreen = GAME_OVER_SCENE.instantiate()
 	var retry_requested := [false]
 	game_over.new_game_requested.connect(func() -> void: retry_requested[0] = true)
 	get_tree().root.add_child(game_over)
+	game_over._unhandled_input(down_event)
+	_check(
+		game_over.get_selected_index() == 1,
+		"Game Over exposes Share on Twitter as a second action."
+	)
+	_check(
+		game_over.call("_get_option_label", 1) == "SHARE ON TWITTER",
+		"The Twitter share action is explicit."
+	)
+	game_over._unhandled_input(down_event)
+	_check(
+		game_over.get_selected_index() == 2,
+		"Game Over exposes generic Share as a third action."
+	)
+	game_over._unhandled_input(up_event)
+	game_over._unhandled_input(up_event)
 	game_over._unhandled_input(fire_event)
 	_check(retry_requested[0], "FIRE retries from Game Over.")
 	game_over.queue_free()
 	await get_tree().process_frame
 
+	GameSession.new_game(2)
+	var intermediate_clear: StageClearScreen = STAGE_CLEAR_SCENE.instantiate()
+	get_tree().root.add_child(intermediate_clear)
+	await get_tree().process_frame
+	_check(
+		intermediate_clear.call("_option_count") == 1,
+		"Intermediate stage clear does not offer terminal score sharing."
+	)
+	_check(
+		intermediate_clear.get("_score_status").is_empty(),
+		"Intermediate stage clear does not claim the score was persisted."
+	)
+	intermediate_clear.queue_free()
+	await get_tree().process_frame
+
 	var stage_clear: StageClearScreen = STAGE_CLEAR_SCENE.instantiate()
 	var replay_requested := [false]
+	GameSession.new_game(LevelCatalog.STAGE_COUNT)
 	stage_clear.replay_requested.connect(func() -> void: replay_requested[0] = true)
 	get_tree().root.add_child(stage_clear)
+	stage_clear._unhandled_input(down_event)
+	_check(
+		stage_clear.get_selected_index() == 1,
+		"Campaign Clear exposes Share on Twitter."
+	)
+	stage_clear._unhandled_input(down_event)
+	_check(
+		stage_clear.get_selected_index() == 2,
+		"Campaign Clear exposes generic Share."
+	)
+	stage_clear._unhandled_input(up_event)
+	stage_clear._unhandled_input(up_event)
 	stage_clear._unhandled_input(fire_event)
 	_check(replay_requested[0], "FIRE replays from Stage Clear.")
 	stage_clear.queue_free()
 	await get_tree().process_frame
+
+
+func _test_score_storage_failure() -> void:
+	var original_handle := PlayerProfile.player_name
+	var storage_fails := [true]
+	Leaderboard.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			return not storage_fails[0]
+	)
+	PlayerProfile.player_name = "FAILTEST"
+
+	var main := MAIN_SCENE.instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	GameSession.award(100)
+	main.call("_finish_run", "game_over")
+	await get_tree().process_frame
+
+	var game_over := main.find_child(
+		"GameOver",
+		true,
+		false
+	) as GameOverScreen
+	_check(game_over != null, "A save failure still presents the terminal score.")
+	_check(
+		game_over.get("_score_status") == "SCORE NOT SAVED - RETRY",
+		"Local save failure replaces success-shaped score status."
+	)
+	_check(
+		game_over.call("_get_option_label", 1) == "RETRY SAVE",
+		"Local save failure exposes a deterministic recovery action."
+	)
+
+	storage_fails[0] = false
+	game_over.set("_selected_index", 1)
+	game_over.call("_activate_selected")
+	_check(
+		game_over.get("_score_status") == "SAVED ON THIS DEVICE",
+		"Retry Save confirms persistence only after storage recovers."
+	)
+
+	main.queue_free()
+	await get_tree().process_frame
+	Leaderboard.set_state_writer_for_tests(Callable())
+	PlayerProfile.player_name = original_handle
+	GameSession.new_game()
 
 
 func _test_gameplay_scene() -> void:
@@ -2212,6 +3171,63 @@ func _get_destructible_layout_count(stage_number: int) -> int:
 			if character != " " and character != "X":
 				count += 1
 	return count
+
+
+func _calculate_campaign_score_ceilings() -> Array[int]:
+	var total := 0
+	var ceilings: Array[int] = []
+	for stage_number in range(1, LevelCatalog.STAGE_COUNT + 1):
+		var destructible_bricks := 0
+		for row in LevelCatalog.get_layout(stage_number):
+			for code in row:
+				if code == " ":
+					continue
+				var definition := BrickRules.get_definition(
+					code,
+					stage_number
+				)
+				if definition.indestructible:
+					continue
+				destructible_bricks += 1
+				total += int(definition.score)
+		total += (
+			CapsuleDropDirector.calculate_budget(destructible_bricks)
+			* Gameplay.POWER_UP_SCORE
+		)
+		ceilings.append(total)
+	return ceilings
+
+
+func _find_power_up_brick(level: Level01, power_type: int) -> Brick:
+	for child in level.bricks.get_children():
+		var brick := child as Brick
+		if brick.power_up_type == power_type:
+			return brick
+	return null
+
+
+func _community_level_fixture() -> Dictionary:
+	return {
+		"id": "cl_0123456789abcdef01234567",
+		"schema_version": 1,
+		"level_name": "NEON TEST",
+		"creator_display_name": "@BUILDER",
+		"layout": [
+			"WWWWWWWW.....",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+			".............",
+		],
+		"status": "pending",
+		"populated_count": 8,
+		"created_at": "2026-08-23T22:00:00Z",
+	}
 
 
 func _check(condition: bool, message: String) -> void:
