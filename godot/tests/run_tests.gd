@@ -1756,21 +1756,26 @@ func _test_player_profile() -> void:
 		not PlayerProfileState.get_name_error("NO!").is_empty(),
 		"Unsupported player-name glyphs are rejected."
 	)
+	var score_share_text := ScoreShare._share_text(10, "game_over")
 	_check(
-		ScoreShare._x_intent_url("PLAYER scored 10 points").begins_with(
-			"https://x.com/intent/post?"
-		),
-		"Score sharing has an X intent fallback."
+		score_share_text
+		== "I scored 10 points in TINYNOID!\nhttps://tinynoid.vercel.app/",
+		"Score sharing uses a first-person message with the game link."
 	)
+	var score_intent := ScoreShare._x_intent_url(score_share_text)
 	_check(
-		ScoreShare._share_text(10, "game_over")
-		== "I scored 10 points in TINYNOID!",
-		"Score sharing uses a first-person message instead of the player handle."
+		score_intent.begins_with("https://x.com/intent/post?text=")
+		and score_intent.contains(ScoreShare.GAME_URL.uri_encode())
+		and not score_intent.contains("&url="),
+		"Score sharing embeds one game link in the X message."
 	)
 	_check(
 		ScoreShare._share_text(10, "campaign_clear")
-		== "I cleared TINYNOID with 10 points!",
-		"Campaign sharing uses a first-person message."
+		== (
+			"I cleared TINYNOID with 10 points!\n"
+			+ "https://tinynoid.vercel.app/"
+		),
+		"Campaign sharing uses a first-person message with the game link."
 	)
 
 
