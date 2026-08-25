@@ -56,9 +56,7 @@ func _ready() -> void:
 		_generator = AudioStreamGenerator.new()
 		_generator.mix_rate = SAMPLE_RATE
 		_generator.buffer_length = RUNTIME_BUFFER_LENGTH
-		_player = AudioStreamPlayer.new()
-		_player.name = "GeneratedMusic"
-		_player.volume_db = -10.0
+		_player = _create_music_player()
 		_player.stream = _generator
 		add_child(_player)
 		_player.play()
@@ -67,6 +65,15 @@ func _ready() -> void:
 			as AudioStreamGeneratorPlayback
 		)
 	play_menu()
+
+
+static func _create_music_player() -> AudioStreamPlayer:
+	var player := AudioStreamPlayer.new()
+	player.name = "GeneratedMusic"
+	player.volume_db = -10.0
+	# Web sample playback cannot drive an AudioStreamGenerator.
+	player.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
+	return player
 
 
 func _process(_delta: float) -> void:
