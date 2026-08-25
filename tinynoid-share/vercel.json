@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "outputDirectory": "public",
+  "regions": ["sfo1"],
+  "redirects": [
+    {
+      "source": "/editor",
+      "destination": "/editor/",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/level/:id",
+      "destination": "/api/level?slug=:id&legacy=1"
+    },
+    {
+      "source": "/:slug([A-Za-z0-9_-]+)",
+      "destination": "/api/level?slug=:slug"
+    }
+  ]
+}

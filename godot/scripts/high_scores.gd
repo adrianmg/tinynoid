@@ -13,8 +13,7 @@ const MAGENTA := Color("#c967e8")
 const VISIBLE_ROWS := 14
 const ROW_Y := 57
 const ROW_HEIGHT := 10
-const BACK_RECT := Rect2(207, 8, 30, 13)
-const ATTRIBUTION_RECT := Rect2(76, 216, 104, 10)
+const BACK_RECT := Rect2(75, 211, 106, 14)
 
 var _entries: Array[Dictionary] = []
 var _state := Leaderboard.STATE_LOADING
@@ -25,7 +24,6 @@ var _touch_scroll_remainder := 0.0
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	AvatarCache.avatar_updated.connect(_on_avatar_updated)
 	Leaderboard.top_scores_updated.connect(_on_top_scores_updated)
 	_entries = Leaderboard.cached_top_scores()
 	if not _entries.is_empty():
@@ -43,7 +41,7 @@ func _draw() -> void:
 	draw_rect(Rect2(18, 28, 220, 2), CYAN)
 	draw_rect(Rect2(18, 202, 220, 2), BLUE)
 	PixelFont.draw_centered(self, "HIGH SCORES", 10, CYAN, 2)
-	PixelFont.draw_text(self, "BACK", Vector2(214, 12), WHITE)
+	PixelFont.draw_centered(self, _range_text(), 32, _state_color())
 	PixelFont.draw_text(self, "#", Vector2(24, 43), WHITE)
 	PixelFont.draw_text(self, "PLAYER", Vector2(54, 43), WHITE)
 	PixelFont.draw_text(self, "ST", Vector2(142, 43), WHITE)
@@ -61,10 +59,17 @@ func _draw() -> void:
 				entry_index,
 				ROW_Y + (entry_index - _scroll_offset) * ROW_HEIGHT
 			)
-
-	PixelFont.draw_centered(self, _range_text(), 211, _state_color())
-	PixelFont.draw_centered(self, "AVATARS BY UNAVATAR", 220, CYAN)
-	PixelFont.draw_centered(self, "ARROWS SCROLL  FIRE REFRESH  ESC BACK", 232, WHITE)
+	var back_selected := _entries.is_empty() or _selected_index == _entries.size()
+	if back_selected:
+		draw_rect(BACK_RECT, RAIL_DARK)
+		draw_rect(Rect2(BACK_RECT.position, Vector2(2, BACK_RECT.size.y)), CYAN)
+	PixelFont.draw_centered(
+		self,
+		"RETURN TO MENU",
+		215,
+		YELLOW if back_selected else WHITE
+	)
+	PixelFont.draw_centered(self, "ARROWS SCROLL  FIRE SELECT  ESC BACK", 232, WHITE)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -80,7 +85,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_right"):
 		_select_relative(VISIBLE_ROWS)
 	elif event.is_action_pressed("launch") or event.is_action_pressed("ui_accept"):
-		Leaderboard.request_top_scores()
+		if _entries.is_empty() or _selected_index == _entries.size():
+			back_requested.emit()
+		else:
+			Leaderboard.request_top_scores()
 	else:
 		return
 
@@ -90,7 +98,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventScreenDrag and event.index == 0:
+	if GamePointer.is_primary_drag(event):
 		_touch_scroll_remainder -= event.relative.y
 		while absf(_touch_scroll_remainder) >= ROW_HEIGHT:
 			var direction := signi(_touch_scroll_remainder)
@@ -98,25 +106,21 @@ func _gui_input(event: InputEvent) -> void:
 			_touch_scroll_remainder -= direction * ROW_HEIGHT
 		accept_event()
 	elif event is InputEventMouseMotion:
-		var row := _get_row_at(event.position)
-		if row >= 0 and row != _selected_index:
-			_selected_index = row
+		var item := _get_item_at(event.position)
+		if item >= 0 and item != _selected_index:
+			_selected_index = item
 			_ensure_selected_visible()
 			UiAudio.play_move()
 			queue_redraw()
 	elif GamePointer.is_primary_press(event):
-		if BACK_RECT.has_point(event.position):
+		var item := _get_item_at(event.position)
+		if item >= 0:
+			_selected_index = item
+			_ensure_selected_visible()
 			accept_event()
-			back_requested.emit()
-		elif ATTRIBUTION_RECT.has_point(event.position):
-			accept_event()
-			OS.shell_open("https://unavatar.io")
-		else:
-			var row := _get_row_at(event.position)
-			if row >= 0:
-				_selected_index = row
-				_ensure_selected_visible()
-				accept_event()
+			if item == _entries.size():
+				back_requested.emit()
+			else:
 				queue_redraw()
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -174,25 +178,23 @@ func _draw_entry(entry_index: int, y: float) -> void:
 
 
 func _select_relative(direction: int) -> void:
-	if _entries.is_empty():
-		return
-	_selected_index = clampi(
-		_selected_index + direction,
-		0,
-		_entries.size() - 1
-	)
+	var item_count := _entries.size() + 1
+	_selected_index = posmod(_selected_index + direction, item_count)
 	_ensure_selected_visible()
 	queue_redraw()
 
-
 func _ensure_selected_visible() -> void:
+	if _selected_index >= _entries.size():
+		return
 	if _selected_index < _scroll_offset:
 		_scroll_offset = _selected_index
 	elif _selected_index >= _scroll_offset + VISIBLE_ROWS:
 		_scroll_offset = _selected_index - VISIBLE_ROWS + 1
 
 
-func _get_row_at(position: Vector2) -> int:
+func _get_item_at(position: Vector2) -> int:
+	if BACK_RECT.has_point(position):
+		return _entries.size()
 	if position.y < ROW_Y - 2:
 		return -1
 	var visible_row := floori((position.y - (ROW_Y - 2)) / ROW_HEIGHT)
@@ -264,8 +266,4 @@ func _on_top_scores_updated(
 		maxi(0, _entries.size() - 1)
 	)
 	_ensure_selected_visible()
-	queue_redraw()
-
-
-func _on_avatar_updated(_handle: String) -> void:
 	queue_redraw()

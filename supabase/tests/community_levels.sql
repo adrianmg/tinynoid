@@ -4,6 +4,9 @@ do $$
 declare
   first_id text;
   duplicate_id text;
+  second_id text;
+  resolved_id text;
+  resolved_slug text;
   first_created boolean;
   duplicate_created boolean;
   visible_count integer;
@@ -40,6 +43,13 @@ begin
     'execute'
   ) then
     raise exception 'community level RPC grants expose public execution';
+  end if;
+  if not has_function_privilege(
+    'anon',
+    'public.get_community_level_share(text,text)',
+    'execute'
+  ) then
+    raise exception 'community share resolver is not publicly executable';
   end if;
 
   select level_id, created
@@ -88,6 +98,46 @@ begin
   );
   if duplicate_created or duplicate_id <> first_id then
     raise exception 'canonical duplicate was not idempotent';
+  end if;
+
+  select level_id
+  into second_id
+  from public.submit_community_level(
+    1,
+    'SMOKE LEVEL',
+    'SECOND AUTHOR',
+    array[
+      'RRRRRRRR.....',
+      '.............',
+      '.............',
+      '.............',
+      '.............',
+      '.............',
+      '.............',
+      '.............',
+      '.............',
+      '.............'
+    ]
+  );
+  select id, slug
+  into resolved_id, resolved_slug
+  from public.get_community_level_share(first_id, null);
+  if resolved_id <> first_id or resolved_slug <> 'smoke-level' then
+    raise exception 'oldest level did not retain the bare friendly slug';
+  end if;
+  select id, slug
+  into resolved_id, resolved_slug
+  from public.get_community_level_share(second_id, null);
+  if resolved_id <> second_id
+    or resolved_slug <> 'smoke-level-' || second_id
+  then
+    raise exception 'duplicate level did not receive an id-suffixed slug';
+  end if;
+  select id
+  into resolved_id
+  from public.get_community_level_share(null, resolved_slug);
+  if resolved_id <> second_id then
+    raise exception 'id-suffixed slug did not resolve its level';
   end if;
 
   select count(*) into visible_count
@@ -140,6 +190,11 @@ begin
   from public.get_community_levels(50, first_id);
   if visible_count <> 0 then
     raise exception 'quarantined level remained visible';
+  end if;
+  select count(*) into visible_count
+  from public.get_community_level_share(null, 'smoke-level');
+  if visible_count <> 0 then
+    raise exception 'bare slug was reassigned after its owner was hidden';
   end if;
 
   perform public.moderate_community_level(

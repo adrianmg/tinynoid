@@ -15,6 +15,8 @@ var _pending_submission: Dictionary = {}
 var _pending_terminal := ""
 var _deep_link_id := ""
 var _community_retry_id := ""
+var _featured_request_id := ""
+var _featured_request_level: Dictionary = {}
 
 
 func _ready() -> void:
@@ -34,18 +36,33 @@ func _unhandled_input(event: InputEvent) -> void:
 		and not _current_screen is CommunityLab
 	):
 		get_viewport().set_input_as_handled()
-		_show_main_menu()
+		_show_contextual_main_menu()
 
 
-func _show_main_menu() -> void:
+func _show_main_menu(
+	featured_community_level: Dictionary = {},
+	notice: String = ""
+) -> void:
 	MusicController.play_menu()
 	var main_menu: MainMenu = MAIN_MENU_SCENE.instantiate()
+	if not featured_community_level.is_empty():
+		main_menu.configure_featured_community_level(featured_community_level)
+	if not notice.is_empty():
+		main_menu.show_notice(notice)
 	_replace_screen(main_menu)
 	main_menu.start_requested.connect(_start_new_game)
+	main_menu.community_level_requested.connect(_request_featured_community_game)
 	main_menu.community_lab_requested.connect(_show_community_lab)
 	main_menu.high_scores_requested.connect(_show_high_scores)
 	main_menu.quit_requested.connect(_quit_game)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _show_contextual_main_menu() -> void:
+	if GameSession.is_community_run():
+		_show_main_menu(GameSession.community_level)
+	else:
+		_show_main_menu()
 
 
 func _show_gameplay() -> void:
@@ -72,6 +89,23 @@ func _show_community_lab(notice: String = "") -> void:
 func _start_community_game(level_data: Dictionary) -> void:
 	GameSession.new_community_game(level_data)
 	_show_gameplay()
+
+
+func _request_featured_community_game(level_data: Dictionary) -> void:
+	var level_id := String(level_data.get("id", ""))
+	if not CommunityCatalogClient.is_valid_id(level_id):
+		_show_main_menu(level_data, "SHARED LEVEL UNAVAILABLE")
+		return
+	_show_main_menu(level_data, "VERIFYING SHARED LEVEL")
+	_featured_request_id = level_id
+	_featured_request_level = level_data.duplicate(true)
+	if (
+		not CommunityCatalog.request_exact(level_id)
+		and _featured_request_id == level_id
+	):
+		_featured_request_id = ""
+		_featured_request_level = {}
+		_show_main_menu(level_data, "SHARED LEVEL CHECK BUSY")
 
 
 func _show_game_over() -> void:
@@ -144,7 +178,7 @@ func _fail_community_retry(message: String) -> void:
 
 func _continue_campaign() -> void:
 	if GameSession.is_community_run():
-		_show_main_menu()
+		_show_contextual_main_menu()
 		return
 	if GameSession.level >= LevelCatalog.STAGE_COUNT:
 		_show_main_menu()
@@ -255,7 +289,17 @@ func _try_community_deep_link() -> void:
 	_deep_link_id = CommunityCatalogClient.deep_link_id(String(query))
 	if _deep_link_id.is_empty():
 		return
-	CommunityCatalog.request_exact(_deep_link_id)
+	if _current_screen is MainMenu:
+		(_current_screen as MainMenu).show_notice("VERIFYING SHARED LEVEL")
+	if (
+		not CommunityCatalog.request_exact(_deep_link_id)
+		and not _deep_link_id.is_empty()
+	):
+		_deep_link_id = ""
+		if _current_screen is MainMenu:
+			(_current_screen as MainMenu).show_notice(
+				"SHARED LEVEL CHECK BUSY"
+			)
 
 
 func _on_level_checked(
@@ -264,6 +308,21 @@ func _on_level_checked(
 	level_data: Dictionary,
 	message: String
 ) -> void:
+	if level_id == _featured_request_id:
+		var requested_level := _featured_request_level.duplicate(true)
+		_featured_request_id = ""
+		_featured_request_level = {}
+		if playable and CommunityCatalog.is_confirmed_playable(level_id):
+			_start_community_game(level_data)
+		else:
+			GameSession.new_game()
+			_show_main_menu(
+				requested_level,
+				message
+				if not message.is_empty()
+				else "SHARED LEVEL UNAVAILABLE"
+			)
+		return
 	if level_id == _community_retry_id:
 		_community_retry_id = ""
 		if playable and CommunityCatalog.is_confirmed_playable(level_id):
@@ -274,8 +333,17 @@ func _on_level_checked(
 	if level_id != _deep_link_id:
 		return
 	_deep_link_id = ""
+	if not _current_screen is MainMenu:
+		return
 	if playable and CommunityCatalog.is_confirmed_playable(level_id):
-		_start_community_game(level_data)
+		_show_main_menu(level_data)
+	else:
+		_show_main_menu(
+			{},
+			message
+			if not message.is_empty()
+			else "SHARED LEVEL UNAVAILABLE"
+		)
 
 
 func _quit_game() -> void:
@@ -299,3 +367,5 @@ func _replace_screen(next_screen: Node) -> void:
 func _cancel_pending_community_navigation() -> void:
 	_deep_link_id = ""
 	_community_retry_id = ""
+	_featured_request_id = ""
+	_featured_request_level = {}

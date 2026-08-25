@@ -30,8 +30,10 @@ few seconds using touch, mouse, keyboard, or controller.
 - The subtitle reads `A TINY ARKANOID TRIBUTE BY @ADRIANMG`.
 - A live line below the option panel shows the latest global player and score,
   with clear loading, empty, and offline states.
-- The bottom contains only `ARROW KEYS TO MOVE & SELECT`,
-  `ENTER / SPACE / TAP TO SELECT`, and Escape instructions.
+- Verified community deep links adapt the subtitle, preselect `PLAY SHARED LEVEL`,
+  and identify the level and creator before gameplay begins.
+- Desktop instructions cover arrow keys, Enter/Space, and Escape. On phones and
+  tablets they switch to tap, drag, launch/fire, and swipe guidance.
 
 ## Chosen direction and memorable moment
 

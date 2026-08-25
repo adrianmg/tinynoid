@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
-  LEVEL_SCHEMA,
   canonicalText,
+  communityLevelUrl,
   contentHash,
   emptyLayout,
   gridNavigationTarget,
   interpolateGridIndexes,
   isCommunityLevelId,
+  LEVEL_SCHEMA,
   normalizeName,
   resolvePaintCode,
   validateLevel,
@@ -33,16 +34,30 @@ function validLevel(overrides = {}) {
   };
 }
 
+function pngDimensions(buffer) {
+  assert.equal(buffer.subarray(1, 4).toString("ascii"), "PNG");
+  return {
+    width: buffer.readUInt32BE(16),
+    height: buffer.readUInt32BE(20),
+  };
+}
+
 test("normalizes public names deterministically", () => {
   assert.equal(normalizeName("  neon   run  "), "NEON RUN");
   assert.equal(normalizeName("@builder_01"), "@BUILDER_01");
 });
 
 test("matches the repository canonical schema", () => {
-  assert.equal(canonicalSchema.properties.schema_version.const, LEVEL_SCHEMA.schemaVersion);
+  assert.equal(
+    canonicalSchema.properties.schema_version.const,
+    LEVEL_SCHEMA.schemaVersion,
+  );
   assert.equal(canonicalSchema["x-tinynoid"].columns, LEVEL_SCHEMA.columns);
   assert.equal(canonicalSchema["x-tinynoid"].rows, LEVEL_SCHEMA.rows);
-  assert.deepEqual(canonicalSchema["x-tinynoid"].allowed_cell_codes, LEVEL_SCHEMA.codes);
+  assert.deepEqual(
+    canonicalSchema["x-tinynoid"].allowed_cell_codes,
+    LEVEL_SCHEMA.codes,
+  );
   assert.equal(
     canonicalSchema["x-tinynoid"].minimum_destructible_cells,
     LEVEL_SCHEMA.minDestructible,
@@ -68,7 +83,10 @@ test("rejects malformed dimensions and unsupported cells", () => {
   );
   const layout = validLevel().layout;
   layout[1] = "......Z......";
-  assert.match(validateLevel(validLevel({ layout })).errors.layout, /supported cells/);
+  assert.match(
+    validateLevel(validLevel({ layout })).errors.layout,
+    /supported cells/,
+  );
 });
 
 test("rejects unsafe names and unplayable density", () => {
@@ -87,13 +105,22 @@ test("rejects unsafe names and unplayable density", () => {
 });
 
 test("rejects more than 100 populated cells", () => {
-  const layout = Array.from({ length: LEVEL_SCHEMA.rows }, () => "RRRRRRRRRRRRR");
-  assert.match(validateLevel(validLevel({ layout })).errors.layout, /no more than 100/);
+  const layout = Array.from(
+    { length: LEVEL_SCHEMA.rows },
+    () => "RRRRRRRRRRRRR",
+  );
+  assert.match(
+    validateLevel(validLevel({ layout })).errors.layout,
+    /no more than 100/,
+  );
 });
 
 test("hashes normalized canonical text deterministically", async () => {
   const result = validateLevel(
-    validLevel({ level_name: " neon   run ", creator_display_name: " @builder " }),
+    validLevel({
+      level_name: " neon   run ",
+      creator_display_name: " @builder ",
+    }),
   );
   assert.equal(
     canonicalText(result.normalized),
@@ -109,6 +136,38 @@ test("recognizes only canonical public ids", () => {
   assert.equal(isCommunityLevelId("cl_6c4e88e29b91f4d2f386647f"), true);
   assert.equal(isCommunityLevelId("CL_6c4e88e29b91f4d2f386647f"), false);
   assert.equal(isCommunityLevelId("cl_short"), false);
+});
+
+test("generates canonical community level deep links", () => {
+  assert.equal(
+    communityLevelUrl("cl_6c4e88e29b91f4d2f386647f"),
+    "https://tinynoid.vercel.app/?community=cl_6c4e88e29b91f4d2f386647f",
+  );
+  assert.equal(
+    communityLevelUrl(
+      "cl_6c4e88e29b91f4d2f386647f",
+      "https://example.com/game/?old=query#stage",
+    ),
+    "https://example.com/game/?community=cl_6c4e88e29b91f4d2f386647f",
+  );
+  assert.equal(communityLevelUrl("cl_short"), "");
+});
+
+test("ships large social cards and matching metadata", async () => {
+  const [gameImage, editorImage, gameShell, editorPage] = await Promise.all([
+    readFile(new URL("../og-image.png", import.meta.url)),
+    readFile(new URL("../editor/og-image.png", import.meta.url)),
+    readFile(new URL("../../godot/web_shell.html", import.meta.url), "utf8"),
+    readFile(new URL("../editor/index.html", import.meta.url), "utf8"),
+  ]);
+  assert.deepEqual(pngDimensions(gameImage), { width: 1200, height: 630 });
+  assert.deepEqual(pngDimensions(editorImage), { width: 1200, height: 630 });
+  assert.match(gameShell, /property="og:image"/);
+  assert.match(gameShell, /name="twitter:card" content="summary_large_image"/);
+  assert.match(gameShell, /tinynoid\.vercel\.app\/og-image\.png/);
+  assert.match(editorPage, /property="og:image"/);
+  assert.match(editorPage, /name="twitter:card" content="summary_large_image"/);
+  assert.match(editorPage, /tinynoid\.vercel\.app\/editor\/og-image\.png/);
 });
 
 test("resolves selected, cycling, and erase paint tools", () => {

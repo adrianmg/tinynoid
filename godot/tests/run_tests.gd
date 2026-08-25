@@ -386,12 +386,24 @@ func _test_main_menu() -> void:
 		"The menu carries the concise tribute subtitle."
 	)
 	_check(
-		MainMenu.INSTRUCTION_LINES == [
+		MainMenu.instruction_lines_for(false) == [
 			"Arrow keys to move & select",
-			"Enter / Space / tap to select",
+			"Enter / Space to select",
 			"ESC to quit",
 		],
-		"The menu advertises keyboard and touch selection."
+		"The desktop menu advertises keyboard controls."
+	)
+	_check(
+		MainMenu.instruction_lines_for(true) == [
+			"Tap and drag to move",
+			"Tap to select / launch / fire",
+			"Swipe lists to scroll",
+		],
+		"The mobile menu advertises touch controls."
+	)
+	_check(
+		menu.call("_get_option_at", Vector2(40, 80)) == 0,
+		"The menu gives touch input the full width of each option row."
 	)
 	_check(PixelFont.GLYPHS.has("."), "The bitmap font supports the domain period.")
 	_check(PixelFont.GLYPHS.has("/"), "The bitmap font supports the instruction slash.")
@@ -516,6 +528,43 @@ func _test_main_menu() -> void:
 	_check(quit_requested[0], "Escape requests quit from the main menu.")
 
 	menu.queue_free()
+	await get_tree().process_frame
+
+	var featured_level := _community_level_fixture()
+	var featured_menu: MainMenu = MAIN_MENU_SCENE.instantiate()
+	var featured_requested: Array[Dictionary] = []
+	featured_menu.configure_featured_community_level(featured_level)
+	featured_menu.community_level_requested.connect(
+		func(level: Dictionary) -> void:
+			featured_requested.append(level)
+	)
+	get_tree().root.add_child(featured_menu)
+	await get_tree().process_frame
+	_check(
+		featured_menu.has_featured_community_level()
+		and featured_menu.get_selected_index() == 0,
+		"A shared community level is preselected on the main menu."
+	)
+	_check(
+		featured_menu.call("_get_option_text", 0) == "PLAY SHARED LEVEL"
+		and featured_menu.get_recent_score_text()
+			== "NEON TEST — BY @BUILDER",
+		"The shared menu identifies the selected level and creator."
+	)
+	featured_menu._unhandled_input(fire_event)
+	_check(
+		featured_requested.size() == 1
+		and featured_requested[0].id == featured_level.id,
+		"FIRE starts the preselected shared level."
+	)
+	featured_menu._unhandled_input(right_event)
+	_check(
+		not featured_menu.has_featured_community_level()
+		and featured_menu.get_selected_stage() == 2
+		and featured_menu.call("_get_option_text", 0) == "PLAY STAGE 02",
+		"Left or Right exits shared selection into campaign stages."
+	)
+	featured_menu.queue_free()
 	await get_tree().process_frame
 
 	var main := MAIN_SCENE.instantiate()
@@ -663,6 +712,21 @@ func _test_community_catalog() -> void:
 			"?foo=bar&community=cl_0123456789abcdef01234567"
 		) == pending_level.id,
 		"Web community deep links accept canonical ids."
+	)
+	_check(
+		CommunityCatalogClient.format_creator_name("adrianmg")
+			== "@ADRIANMG"
+		and CommunityCatalogClient.format_creator_name("@ADRIANMG")
+			== "@ADRIANMG",
+		"Community creator labels consistently include one at sign."
+	)
+	_check(
+		BrickRules.get_color("R") == BrickRules.get_definition("R", 1).color,
+		"Community previews reuse runtime brick colors."
+	)
+	_check(
+		BrickRules.get_color("?") == BrickRules.PREVIEW_FALLBACK_COLOR,
+		"Community previews remain safe if a future code is unsupported."
 	)
 
 	var catalog_client := CommunityCatalogClient.new()
@@ -932,6 +996,91 @@ func _test_community_catalog() -> void:
 		and String(main.get("_deep_link_id")).is_empty(),
 		"A deep-link response cannot replace a newer navigation target."
 	)
+	GameSession.new_game()
+	main.call("_show_main_menu")
+	var confirmed_levels := {
+		pending_level.id: pending_level,
+	}
+	CommunityCatalog.set("_confirmed_levels", confirmed_levels)
+	main.set("_deep_link_id", pending_level.id)
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		true,
+		pending_level,
+		""
+	)
+	await get_tree().process_frame
+	var shared_menu := main.get("_current_screen") as MainMenu
+	_check(
+		shared_menu != null
+		and shared_menu.has_featured_community_level()
+		and not GameSession.is_community_run(),
+		"A verified deep link opens a preselected menu instead of auto-launching."
+	)
+	shared_menu.call("_activate_selected")
+	await get_tree().process_frame
+	_check(
+		String(main.get("_featured_request_id")) == pending_level.id
+		and main.get("_current_screen") is MainMenu,
+		"Starting a featured level rechecks online freshness."
+	)
+	var featured_request := CommunityCatalog.get("_exact_request") as HTTPRequest
+	if is_instance_valid(featured_request):
+		featured_request.cancel_request()
+	CommunityCatalog.set("_exact_in_flight", false)
+	CommunityCatalog.set("_requested_id", "")
+	CommunityCatalog.set(
+		"_confirmed_levels",
+		{pending_level.id: pending_level}
+	)
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		true,
+		pending_level,
+		""
+	)
+	await get_tree().process_frame
+	_check(
+		main.get("_current_screen") is Gameplay
+		and GameSession.is_community_run()
+		and GameSession.community_level.id == pending_level.id,
+		"The preselected menu starts the verified community level."
+	)
+	var shared_cancel := InputEventAction.new()
+	shared_cancel.action = "ui_cancel"
+	shared_cancel.pressed = true
+	main.call("_unhandled_input", shared_cancel)
+	await get_tree().process_frame
+	var replay_menu := main.get("_current_screen") as MainMenu
+	_check(
+		replay_menu != null
+		and replay_menu.has_featured_community_level()
+		and replay_menu.get_featured_community_level().id == pending_level.id,
+		"Returning from shared gameplay keeps the level preselected for replay."
+	)
+	replay_menu.call("_activate_selected")
+	await get_tree().process_frame
+	featured_request = CommunityCatalog.get("_exact_request") as HTTPRequest
+	if is_instance_valid(featured_request):
+		featured_request.cancel_request()
+	CommunityCatalog.set("_exact_in_flight", false)
+	CommunityCatalog.set("_requested_id", "")
+	main.call(
+		"_on_level_checked",
+		pending_level.id,
+		false,
+		{},
+		"Community level is no longer available."
+	)
+	await get_tree().process_frame
+	_check(
+		main.get("_current_screen") is MainMenu
+		and not GameSession.is_community_run(),
+		"Removed featured levels cannot replay from cached data."
+	)
+	CommunityCatalog.set("_confirmed_levels", {})
 	main.queue_free()
 	await get_tree().process_frame
 	GameSession.new_game()
@@ -1013,31 +1162,46 @@ func _test_name_entry_and_high_scores() -> void:
 		high_scores.get_scroll_offset() == 2,
 		"Leaderboard scroll follows selection beyond the visible rows."
 	)
+	var score_back_requests := [0]
+	high_scores.back_requested.connect(
+		func() -> void:
+			score_back_requests[0] += 1
+	)
+	var score_back_click := InputEventMouseButton.new()
+	score_back_click.button_index = MOUSE_BUTTON_LEFT
+	score_back_click.position = Vector2(128, 217)
+	score_back_click.pressed = true
+	high_scores._gui_input(score_back_click)
+	_check(
+		score_back_requests[0] == 1
+		and high_scores.get_selected_index() == entries.size(),
+		"High Scores reuses the Community Lab Return to Menu action."
+	)
 	high_scores.queue_free()
 	await get_tree().process_frame
 
 
 func _test_touch_controls() -> void:
 	_check(
-		not ProjectSettings.get_setting(
+		ProjectSettings.get_setting(
 			"input_devices/pointing/emulate_mouse_from_touch",
-			true
+			false
 		),
-		"Touch is handled explicitly without duplicate emulated mouse clicks."
+		"Touch events are translated to the existing mouse control path."
 	)
 
-	var tap := InputEventScreenTouch.new()
-	tap.index = 0
+	var tap := InputEventMouseButton.new()
+	tap.button_index = MOUSE_BUTTON_LEFT
 	tap.position = Vector2(128, 86)
 	tap.pressed = true
-	var second_touch := InputEventScreenTouch.new()
-	second_touch.index = 1
-	second_touch.position = Vector2(128, 86)
-	second_touch.pressed = true
-	_check(GamePointer.is_primary_press(tap), "A primary tap maps to a pointer press.")
+	var secondary_click := InputEventMouseButton.new()
+	secondary_click.button_index = MOUSE_BUTTON_RIGHT
+	secondary_click.position = Vector2(128, 86)
+	secondary_click.pressed = true
+	_check(GamePointer.is_primary_press(tap), "An emulated tap is a primary click.")
 	_check(
-		not GamePointer.is_primary_press(second_touch),
-		"Secondary touches do not trigger duplicate actions."
+		not GamePointer.is_primary_press(secondary_click),
+		"Non-primary clicks do not activate touch actions."
 	)
 
 	GameSession.new_game(1, 8080)
@@ -1071,11 +1235,11 @@ func _test_touch_controls() -> void:
 		"2026-08-24T00:00:00Z",
 		""
 	)
-	second_touch.position = Vector2(128, 70)
-	touch_lab._gui_input(second_touch)
+	secondary_click.position = Vector2(128, 70)
+	touch_lab._gui_input(secondary_click)
 	_check(
 		String(touch_lab.get("_checking_id")).is_empty(),
-		"A secondary touch does not activate a Community Lab level."
+		"A non-primary click does not activate a Community Lab level."
 	)
 	tap.position = Vector2(128, 70)
 	touch_lab._gui_input(tap)
@@ -1085,11 +1249,11 @@ func _test_touch_controls() -> void:
 	)
 	tap.position = Vector2(128, 217)
 	touch_lab._gui_input(tap)
-	second_touch.position = tap.position
-	touch_lab._gui_input(second_touch)
+	secondary_click.position = tap.position
+	touch_lab._gui_input(secondary_click)
 	_check(
 		lab_back_requests[0] == 1,
-		"A primary tap returns from Community Lab without a secondary duplicate."
+		"A tap returns from Community Lab without a secondary activation."
 	)
 	var exact_request := CommunityCatalog.get("_exact_request") as HTTPRequest
 	if is_instance_valid(exact_request):
@@ -1116,8 +1280,8 @@ func _test_touch_controls() -> void:
 		touch_entries,
 		"2026-08-24T00:00:00"
 	)
-	var score_drag := InputEventScreenDrag.new()
-	score_drag.index = 0
+	var score_drag := InputEventMouseMotion.new()
+	score_drag.button_mask = MOUSE_BUTTON_MASK_LEFT
 	score_drag.position = Vector2(128, 140)
 	score_drag.relative = Vector2(0, -20)
 	touch_scores._gui_input(score_drag)
@@ -1144,8 +1308,8 @@ func _test_touch_controls() -> void:
 		"A gameplay tap moves the paddle to the touch position."
 	)
 
-	var drag := InputEventScreenDrag.new()
-	drag.index = 0
+	var drag := InputEventMouseMotion.new()
+	drag.button_mask = MOUSE_BUTTON_MASK_LEFT
 	drag.position = Vector2(72, 200)
 	gameplay.paddle._input(drag)
 	await get_tree().physics_frame
@@ -1526,17 +1690,14 @@ func _test_player_profile() -> void:
 		"X handles display with an implicit at sign."
 	)
 	_check(
-		AvatarCacheState.avatar_url("@ADRIAN_MG")
-		== "https://unavatar.io/x/ADRIAN_MG?fallback=false",
-		"Real avatar lookup uses the canonical bare X handle."
+		PixelAvatar._identity_hash("ADRIANMG")
+		== PixelAvatar._identity_hash("@ADRIANMG"),
+		"Generated avatar identity ignores the display-only at sign."
 	)
-	var source_avatar := Image.create(16, 12, false, Image.FORMAT_RGBA8)
-	source_avatar.fill(Color("#ed734c"))
-	var pixelated_avatar := AvatarCacheState.pixelate(source_avatar)
 	_check(
-		pixelated_avatar.get_width() == AvatarCacheState.AVATAR_SIZE
-		and pixelated_avatar.get_height() == AvatarCacheState.AVATAR_SIZE,
-		"Resolved avatars are center-cropped into an 8x8 pixel texture."
+		PixelAvatar._identity_hash("ADRIANMG")
+		!= PixelAvatar._identity_hash("OTHER_PLAYER"),
+		"Generated avatars vary deterministically by player identity."
 	)
 	_check(
 		not PlayerProfileState.get_name_error("NO-DASH").is_empty(),
@@ -1551,6 +1712,16 @@ func _test_player_profile() -> void:
 			"https://x.com/intent/post?"
 		),
 		"Score sharing has an X intent fallback."
+	)
+	_check(
+		ScoreShare._share_text(10, "game_over")
+		== "I scored 10 points in TINYNOID!",
+		"Score sharing uses a first-person message instead of the player handle."
+	)
+	_check(
+		ScoreShare._share_text(10, "campaign_clear")
+		== "I cleared TINYNOID with 10 points!",
+		"Campaign sharing uses a first-person message."
 	)
 
 
@@ -2412,12 +2583,6 @@ func _test_result_screens() -> void:
 		game_over.call("_get_option_label", 1) == "SHARE ON TWITTER",
 		"The Twitter share action is explicit."
 	)
-	game_over._unhandled_input(down_event)
-	_check(
-		game_over.get_selected_index() == 2,
-		"Game Over exposes generic Share as a third action."
-	)
-	game_over._unhandled_input(up_event)
 	game_over._unhandled_input(up_event)
 	game_over._unhandled_input(fire_event)
 	_check(retry_requested[0], "FIRE retries from Game Over.")
@@ -2449,12 +2614,6 @@ func _test_result_screens() -> void:
 		stage_clear.get_selected_index() == 1,
 		"Campaign Clear exposes Share on Twitter."
 	)
-	stage_clear._unhandled_input(down_event)
-	_check(
-		stage_clear.get_selected_index() == 2,
-		"Campaign Clear exposes generic Share."
-	)
-	stage_clear._unhandled_input(up_event)
 	stage_clear._unhandled_input(up_event)
 	stage_clear._unhandled_input(fire_event)
 	_check(replay_requested[0], "FIRE replays from Stage Clear.")

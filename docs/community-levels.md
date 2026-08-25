@@ -82,6 +82,19 @@ must remain only in Supabase function secrets.
 - `GET /community-levels?limit=100` returns a bounded public catalog.
 - `GET /community-levels?id=cl_…` confirms that one cached or deep-linked level
   is still publicly playable.
+- `POST /rest/v1/rpc/get_community_level_share` resolves one playable level by
+  immutable id or canonical friendly slug.
+- `GET /share-level?id=cl_…` redirects legacy share URLs to Vercel.
+- `GET /share-level?id=cl_…&image=1` renders a 1200x630 PNG from the immutable
+  level name, creator, moderation label, and 13x10 layout.
+
+Successful editor submissions expose a direct play URL and a personalized URL
+such as `https://tinynoid.vercel.app/love-yah`. The oldest level with a
+normalized name permanently owns the bare slug; later name collisions use
+`love-yah-cl_<24 lowercase hex characters>`. Opening either route performs the
+exact online freshness check, then presents the linked unranked level
+preselected on the TINYNOID main menu. The editor uses the personalized route
+for the platform share sheet and clipboard fallback.
 
 Only `pending` and `listed` records are returned. `pending` means playable but
 must be rendered as `UNREVIEWED`. `quarantined` and `removed` records are never
@@ -116,7 +129,7 @@ python3 -m http.server 4173 --directory web
 
 Open <http://127.0.0.1:4173/editor/>. Localhost and `127.0.0.1` origins are
 accepted by the Edge Functions; production CORS is restricted to
-`https://adrianmg.github.io`.
+`https://tinynoid.vercel.app`.
 
 Run focused tests:
 
@@ -135,6 +148,7 @@ supabase link --project-ref ugkygoijpqrreooylpnc
 supabase db push
 supabase functions deploy submit-level --project-ref ugkygoijpqrreooylpnc --no-verify-jwt
 supabase functions deploy community-levels --project-ref ugkygoijpqrreooylpnc --no-verify-jwt
+supabase functions deploy share-level --project-ref ugkygoijpqrreooylpnc --no-verify-jwt
 ```
 
 After DDL changes, run Supabase security and performance advisors. Exercise
@@ -142,5 +156,5 @@ submission, duplicate submission, catalog visibility, moderation hiding, and
 rate limiting against disposable rows, then remove those rows through a
 service-role transaction.
 
-The release build exports Godot first and then copies `web/editor/` into the
-GitHub Pages artifact, preserving `/editor/` beside the game.
+Vercel runs `tinynoid-share/build.sh`, exports Godot, and places the editor,
+schema, and OG assets beside the game under one production domain.

@@ -26,9 +26,12 @@ test -s "${BUILD_DIR}/web/index.html"
 test -s "${BUILD_DIR}/web/index.wasm"
 test -s "${BUILD_DIR}/web/index.pck"
 cp -R "${ROOT}/web/editor" "${BUILD_DIR}/web/editor"
+cp "${ROOT}/web/og-image.png" "${BUILD_DIR}/web/og-image.png"
 cp -R "${ROOT}/schema" "${BUILD_DIR}/web/schema"
+test -s "${BUILD_DIR}/web/og-image.png"
 test -s "${BUILD_DIR}/web/editor/index.html"
 test -s "${BUILD_DIR}/web/editor/app.js"
+test -s "${BUILD_DIR}/web/editor/og-image.png"
 test -s "${BUILD_DIR}/web/schema/community-level-v1.schema.json"
 
 "$GODOT_BIN" --headless --path "$PROJECT_DIR" \

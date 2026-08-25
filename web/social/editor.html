@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      width: 1200px;
+      height: 630px;
+      margin: 0;
+      overflow: hidden;
+      background: #050611;
+    }
+    body {
+      position: relative;
+      color: #f7f4ff;
+      text-transform: uppercase;
+    }
+    .shell {
+      position: absolute;
+      inset: 28px;
+      border: 4px solid #287fc4;
+      box-shadow: 10px 10px 0 #12345b;
+    }
+    .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto;
+      height: 5px;
+      background: #74ddff;
+    }
+    .copy {
+      position: absolute;
+      left: 68px;
+      top: 66px;
+      width: 410px;
+    }
+    .brand {
+      margin: 0;
+      color: #74ddff;
+    }
+    .kicker {
+      margin-top: 20px;
+      color: #ffd84a;
+    }
+    .rule {
+      width: 370px;
+      height: 8px;
+      margin: 30px 0;
+      border-top: 3px solid #74ddff;
+      border-bottom: 3px solid #287fc4;
+    }
+    h1 {
+      margin: 0;
+      color: #f7f4ff;
+    }
+    .verbs {
+      margin-top: 28px;
+      color: #c967e8;
+    }
+    .status {
+      display: inline-block;
+      margin-top: 28px;
+      padding: 12px 16px 10px;
+      border: 3px solid #56d46f;
+      color: #56d46f;
+    }
+    .workbench {
+      position: absolute;
+      top: 52px;
+      right: 58px;
+      width: 624px;
+      height: 520px;
+      padding: 22px;
+      border: 6px solid #287fc4;
+      border-top-color: #74ddff;
+      background: #111329;
+      box-shadow: 10px 10px 0 #12345b;
+    }
+    .bench-head {
+      display: flex;
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 3px solid #287fc4;
+      color: #74ddff;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(13, 36px);
+      grid-auto-rows: 25px;
+      gap: 5px;
+      width: 528px;
+      margin: 22px auto 0;
+      padding: 12px;
+      border: 4px solid #287fc4;
+      border-top-color: #74ddff;
+      background: #050611;
+    }
+    .cell {
+      border: 2px solid #12345b;
+      background: #090a17;
+    }
+    .cell.filled {
+      border-color: #111329;
+      box-shadow: inset 0 3px #f7f4ff, inset 0 -3px #12345b;
+    }
+    .bench-foot {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .tool {
+      padding: 9px 12px 8px;
+      border: 2px solid #287fc4;
+      color: #f7f4ff;
+    }
+    .tool.active {
+      border-color: #ffd84a;
+      color: #ffd84a;
+      background: #12345b;
+    }
+    .share {
+      margin-left: auto;
+      padding: 11px 15px 9px;
+      border: 3px solid #74ddff;
+      color: #050611;
+      background: #74ddff;
+      box-shadow: 5px 5px 0 #287fc4;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell"></div>
+  <main class="copy">
+    <p
+      class="brand"
+      data-pixel
+      data-text="TINYNOID"
+      data-scale="8"
+      data-color="#74ddff"
+      data-shadow="5,5,#287fc4"
+    ></p>
+    <p
+      class="kicker"
+      data-pixel
+      data-text="COMMUNITY CARTRIDGE WORKSHOP"
+      data-scale="3"
+      data-color="#ffd84a"
+    ></p>
+    <div class="rule"></div>
+    <h1
+      data-pixel
+      data-text="BUILD|A LEVEL"
+      data-scale="11"
+      data-line-gap="18"
+      data-color="#f7f4ff"
+    ></h1>
+    <p
+      class="verbs"
+      data-pixel
+      data-text="PAINT / PUBLISH / SHARE|PLAY EVERY LEVEL INSTANTLY"
+      data-scale="4"
+      data-line-gap="12"
+      data-color="#c967e8"
+    ></p>
+    <span
+      class="status"
+      data-pixel
+      data-text="UNRANKED / UNREVIEWED"
+      data-scale="3"
+      data-color="#56d46f"
+    ></span>
+  </main>
+  <section class="workbench">
+    <div class="bench-head">
+      <span data-pixel data-text="COMMUNITY LAB" data-scale="3" data-color="#74ddff"></span>
+      <span data-pixel data-text="13 X 10 / SCHEMA V1" data-scale="3" data-color="#74ddff"></span>
+    </div>
+    <div id="grid" class="grid"></div>
+    <div class="bench-foot">
+      <span class="tool active" data-pixel data-text="CYCLE" data-scale="3" data-color="#ffd84a"></span>
+      <span class="tool" data-pixel data-text="ERASE" data-scale="3"></span>
+      <span class="tool" data-pixel data-text="COLOR" data-scale="3"></span>
+      <span class="share" data-pixel data-text="SHARE LEVEL" data-scale="3" data-color="#050611"></span>
+    </div>
+  </section>
+  <script>
+    const colors = [
+      "#f15b68", "#ff8a3d", "#56d46f", "#6d83f2", "#c967e8", "#ffd84a"
+    ];
+    const pattern = [
+      "0011111111100",
+      "0112222222110",
+      "1122333322111",
+      "0004455440000",
+      "0000050000000"
+    ];
+    const grid = document.querySelector("#grid");
+    for (let index = 0; index < 130; index += 1) {
+      const row = Math.floor(index / 13);
+      const column = index % 13;
+      const cell = document.createElement("span");
+      cell.className = "cell";
+      const code = pattern[row]?.[column] ?? "0";
+      if (code !== "0") {
+        cell.classList.add("filled");
+        cell.style.background = colors[(Number(code) - 1) % colors.length];
+      }
+      grid.append(cell);
+    }
+  </script>
+  <script src="/web/social/pixel-font.js"></script>
+</body>
+</html>

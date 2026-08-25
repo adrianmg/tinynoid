@@ -1,22 +1,20 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ALLOWED_WEB_ORIGINS = new Set([
-  "https://adrianmg.github.io",
+  "https://tinynoid.vercel.app",
 ]);
 const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const encoder = new TextEncoder();
 
 type JsonRecord = Record<string, unknown>;
 
-
 function isAllowedOrigin(origin: string | null): boolean {
   return (
-    origin === null
-    || ALLOWED_WEB_ORIGINS.has(origin)
-    || LOCAL_ORIGIN.test(origin)
+    origin === null ||
+    ALLOWED_WEB_ORIGINS.has(origin) ||
+    LOCAL_ORIGIN.test(origin)
   );
 }
-
 
 function responseHeaders(origin: string | null): HeadersInit {
   return {
@@ -28,7 +26,6 @@ function responseHeaders(origin: string | null): HeadersInit {
     "Vary": "Origin",
   };
 }
-
 
 function jsonResponse(
   body: JsonRecord | unknown[],
@@ -44,7 +41,6 @@ function jsonResponse(
     },
   });
 }
-
 
 async function digestNetworkKey(
   networkAddress: string,
@@ -67,7 +63,6 @@ async function digestNetworkKey(
     .join("");
 }
 
-
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -77,7 +72,6 @@ async function sha256(value: string): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
-
 
 Deno.serve(async (request: Request): Promise<Response> => {
   const origin = request.headers.get("origin");
@@ -103,15 +97,19 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) {
     console.error("Supabase function environment is incomplete.");
-    return jsonResponse({ error: "Score service is unavailable." }, 503, origin);
+    return jsonResponse(
+      { error: "Score service is unavailable." },
+      503,
+      origin,
+    );
   }
 
   const forwardedFor = request.headers.get("x-forwarded-for")
     ?.split(",")[0]
     ?.trim();
-  const networkAddress = request.headers.get("cf-connecting-ip")
-    ?? forwardedFor
-    ?? "unknown";
+  const networkAddress = request.headers.get("cf-connecting-ip") ??
+    forwardedFor ??
+    "unknown";
   const keyHash = await digestNetworkKey(networkAddress, serviceRoleKey);
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
@@ -141,8 +139,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
   });
   if (error) {
     if (
-      error.code === "P0001"
-      && error.message === "score_rate_limit_exceeded"
+      error.code === "P0001" &&
+      error.message === "score_rate_limit_exceeded"
     ) {
       return jsonResponse(
         { error: "Too many score submissions. Try again later." },

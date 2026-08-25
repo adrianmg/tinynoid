@@ -2,6 +2,7 @@ class_name MainMenu
 extends Control
 
 signal start_requested(stage_number: int)
+signal community_level_requested(level: Dictionary)
 signal community_lab_requested
 signal high_scores_requested
 signal quit_requested
@@ -17,16 +18,34 @@ const MAGENTA := Color("#c967e8")
 const OPTION_Y := [80, 96, 112, 128, 144]
 const RECENT_SCORE_Y := 174
 const SUBTITLE := "A TINY ARKANOID TRIBUTE BY @ADRIANMG"
-const INSTRUCTION_LINES := [
+const COMMUNITY_SUBTITLE := "SHARED COMMUNITY LEVEL"
+const DESKTOP_INSTRUCTION_LINES: Array[String] = [
 	"Arrow keys to move & select",
-	"Enter / Space / tap to select",
+	"Enter / Space to select",
 	"ESC to quit",
+]
+const MOBILE_INSTRUCTION_LINES: Array[String] = [
+	"Tap and drag to move",
+	"Tap to select / launch / fire",
+	"Swipe lists to scroll",
 ]
 
 var _selected_index := 0
 var _selected_stage := 1
 var _recent_score_state := Leaderboard.STATE_LOADING
 var _recent_score: Dictionary = {}
+var _featured_community_level: Dictionary = {}
+var _notice := ""
+
+
+func configure_featured_community_level(level: Dictionary) -> void:
+	_featured_community_level = level.duplicate(true)
+	_selected_index = 0
+
+
+func show_notice(message: String) -> void:
+	_notice = message.to_upper()
+	queue_redraw()
 
 
 func _ready() -> void:
@@ -42,20 +61,29 @@ func _ready() -> void:
 	_recent_score = Leaderboard.cached_latest_score()
 	if not _recent_score.is_empty():
 		_recent_score_state = Leaderboard.STATE_STALE
-	if DisplayServer.get_name() != "headless":
+	if (
+		_featured_community_level.is_empty()
+		and DisplayServer.get_name() != "headless"
+	):
 		Leaderboard.request_latest_score()
 	queue_redraw()
 
 
 func _draw() -> void:
 	draw_rect(Rect2(36, 72, 184, 90), PANEL)
-	draw_rect(Rect2(36, 72, 184, 2), CYAN)
+	var accent := MAGENTA if has_featured_community_level() else CYAN
+	draw_rect(Rect2(36, 72, 184, 2), accent)
 	draw_rect(Rect2(36, 158, 184, 2), BLUE)
 
 	draw_rect(Rect2(52, 46, 16, 2), MAGENTA)
 	draw_rect(Rect2(188, 46, 16, 2), MAGENTA)
 	PixelFont.draw_centered(self, "TINYNOID", 42, CYAN, 2)
-	PixelFont.draw_centered(self, SUBTITLE, 61, WHITE)
+	PixelFont.draw_centered(
+		self,
+		COMMUNITY_SUBTITLE if has_featured_community_level() else SUBTITLE,
+		61,
+		MAGENTA if has_featured_community_level() else WHITE
+	)
 
 	for option_index in range(OPTION_Y.size()):
 		var option_rect := _get_option_rect(option_index)
@@ -79,15 +107,19 @@ func _draw() -> void:
 			YELLOW if option_index == _selected_index else WHITE
 		)
 
+	draw_rect(Rect2(16, RECENT_SCORE_Y - 2, 224, 9), VOID)
 	PixelFont.draw_centered(
 		self,
 		get_recent_score_text(),
 		RECENT_SCORE_Y,
 		_get_recent_score_color()
 	)
-	PixelFont.draw_centered(self, INSTRUCTION_LINES[0], 190, CYAN)
-	PixelFont.draw_centered(self, INSTRUCTION_LINES[1], 202, WHITE)
-	PixelFont.draw_centered(self, INSTRUCTION_LINES[2], 216, MAGENTA)
+	var instruction_lines := instruction_lines_for(
+		GamePointer.is_mobile_device()
+	)
+	PixelFont.draw_centered(self, instruction_lines[0], 190, CYAN)
+	PixelFont.draw_centered(self, instruction_lines[1], 202, WHITE)
+	PixelFont.draw_centered(self, instruction_lines[2], 216, MAGENTA)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -149,7 +181,42 @@ func get_sound_level() -> int:
 	return AudioSettings.level
 
 
+func has_featured_community_level() -> bool:
+	return not _featured_community_level.is_empty()
+
+
+func get_featured_community_level() -> Dictionary:
+	return _featured_community_level.duplicate(true)
+
+
+static func instruction_lines_for(is_mobile: bool) -> Array[String]:
+	return (
+		MOBILE_INSTRUCTION_LINES
+		if is_mobile
+		else DESKTOP_INSTRUCTION_LINES
+	)
+
+
 func get_recent_score_text() -> String:
+	if not _notice.is_empty():
+		return _fit_text(_notice, 248)
+	if has_featured_community_level():
+		return _fit_text(
+			"%s — BY %s" % [
+				String(_featured_community_level.get("level_name", "LEVEL")),
+				String(
+					CommunityCatalogClient.format_creator_name(
+						String(
+							_featured_community_level.get(
+								"creator_display_name",
+								"CREATOR"
+							)
+						)
+					)
+				),
+			],
+			248
+		)
 	if not _recent_score.is_empty():
 		return "%s HIT %d POINTS RECENTLY" % [
 			String(_recent_score.get("player_name", "PLAYER")),
@@ -175,6 +242,16 @@ func _select_relative(direction: int) -> void:
 func _change_selected(direction: int) -> void:
 	match _selected_index:
 		0:
+			if has_featured_community_level():
+				_featured_community_level = {}
+				_notice = ""
+				_selected_stage = wrapi(
+					1 + direction,
+					1,
+					LevelCatalog.STAGE_COUNT + 1
+				)
+				queue_redraw()
+				return
 			_selected_stage = wrapi(
 				_selected_stage + direction,
 				1,
@@ -190,7 +267,12 @@ func _change_selected(direction: int) -> void:
 func _activate_selected() -> void:
 	match _selected_index:
 		0:
-			start_requested.emit(_selected_stage)
+			if has_featured_community_level():
+				community_level_requested.emit(
+					_featured_community_level.duplicate(true)
+				)
+			else:
+				start_requested.emit(_selected_stage)
 		1:
 			community_lab_requested.emit()
 		2:
@@ -204,7 +286,11 @@ func _activate_selected() -> void:
 func _get_option_text(option_index: int) -> String:
 	match option_index:
 		0:
-			return "PLAY STAGE %02d" % _selected_stage
+			return (
+				"PLAY SHARED LEVEL"
+				if has_featured_community_level()
+				else "PLAY STAGE %02d" % _selected_stage
+			)
 		1:
 			return "COMMUNITY LAB"
 		2:
@@ -223,7 +309,13 @@ func _get_option_rect(option_index: int) -> Rect2:
 
 func _get_option_at(position: Vector2) -> int:
 	for option_index in range(OPTION_Y.size()):
-		if _get_option_rect(option_index).has_point(position):
+		var hit_rect := Rect2(
+			36,
+			OPTION_Y[option_index] - 8,
+			184,
+			16
+		)
+		if hit_rect.has_point(position):
 			return option_index
 
 	return -1
@@ -248,6 +340,14 @@ func _on_latest_score_updated(
 
 
 func _get_recent_score_color() -> Color:
+	if not _notice.is_empty():
+		return MAGENTA
+	if has_featured_community_level():
+		return (
+			CYAN
+			if String(_featured_community_level.get("status", "")) == "listed"
+			else MAGENTA
+		)
 	if (
 		_recent_score_state == Leaderboard.STATE_STALE
 		or _recent_score_state == Leaderboard.STATE_ERROR
@@ -256,3 +356,14 @@ func _get_recent_score_color() -> Color:
 	if _recent_score.is_empty():
 		return CYAN
 	return YELLOW
+
+
+func _fit_text(text: String, maximum_width: int) -> String:
+	if PixelFont.measure(text).x <= maximum_width:
+		return text
+	var shortened := text
+	while shortened.length() > 3:
+		shortened = shortened.left(shortened.length() - 1)
+		if PixelFont.measure(shortened + "...").x <= maximum_width:
+			return shortened + "..."
+	return "..."

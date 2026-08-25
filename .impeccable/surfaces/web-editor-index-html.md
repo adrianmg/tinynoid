@@ -27,6 +27,9 @@ submit an original fixed-grid phase without learning a separate design tool.
 - Submission uses only the public Edge Function and publishable key.
 - Pending submissions are introduced as immediately playable, unranked, and
   `UNREVIEWED`.
+- Successful and duplicate submissions expose a direct-play URL plus a
+  personalized social route with native sharing and a clipboard fallback.
+- Social previews use the dedicated 1200x630 pixel-art workshop card.
 - Desktop keeps the controls beside the arena; narrow layouts place them below.
 - The visual system uses hard pixels, opaque palette colors, and square geometry.
 

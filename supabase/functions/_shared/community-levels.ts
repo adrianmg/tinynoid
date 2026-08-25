@@ -36,6 +36,10 @@ export interface SubmissionResult {
   status: "pending" | "listed";
 }
 
+export function isCommunityLevelId(value: unknown): value is string {
+  return typeof value === "string" && PUBLIC_ID_PATTERN.test(value);
+}
+
 export function normalizeName(
   value: unknown,
   field: "level_name" | "creator_display_name",
@@ -310,7 +314,7 @@ export function parseCatalogQuery(url: URL): {
   }
 
   const id = url.searchParams.get("id");
-  if (id !== null && !PUBLIC_ID_PATTERN.test(id)) {
+  if (id !== null && !isCommunityLevelId(id)) {
     throw new RequestValidationError(
       "invalid_query",
       "id must be a valid community level id.",

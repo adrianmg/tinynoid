@@ -64,6 +64,7 @@ const BASE_RULES := {
 	},
 }
 const REGULAR_CODES := ["W", "O", "C", "G", "R", "B", "P", "Y"]
+const PREVIEW_FALLBACK_COLOR := Color("#12345b")
 
 
 static func get_definition(code: String, stage_number: int) -> Dictionary:
@@ -88,6 +89,10 @@ static func get_definition(code: String, stage_number: int) -> Dictionary:
 	return definition
 
 
+static func get_color(code: String) -> Color:
+	var rule: Variant = BASE_RULES.get(code)
+	return rule.color if rule is Dictionary else PREVIEW_FALLBACK_COLOR
+
+
 static func get_regular_code(index: int) -> String:
 	return REGULAR_CODES[posmod(index, REGULAR_CODES.size())]
-
