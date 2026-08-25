@@ -35,7 +35,7 @@ main scene.
 - **Menus / High Scores:** Arrow keys, click, tap, or controller
 - **Restart stage:** R
 - **Return to menu:** Escape
-- **Window size:** F2 for 2×, F3 for 3×
+- **Window size (desktop):** F2 for 2×, F3 for 3×
 - **Fullscreen:** F11 or Alt+Enter
 
 ## Highlights

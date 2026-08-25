@@ -16,8 +16,9 @@ few seconds using touch, mouse, keyboard, or controller.
 
 ## Content and constraints
 
-- Play, Community Lab, High Scores, Window mode, and four Sound levels (`III`,
-  `II`, `I`, `OFF`) are the menu options.
+- Play, Community Lab, High Scores, and four Sound levels (`III`, `II`, `I`,
+  `OFF`) are universal menu options. Desktop builds also expose Window mode;
+  Web builds omit it.
 - Left/Right changes the selected starting stage from 1 through 33.
 - F2 selects 2x, F3 selects 3x, and F11 or Alt+Enter toggles fullscreen.
 - Escape returns here from gameplay and quits when this menu is already active.

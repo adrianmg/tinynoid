@@ -15,7 +15,8 @@ const CYAN := Color("#74ddff")
 const WHITE := Color("#f7f4ff")
 const YELLOW := Color("#ffd84a")
 const MAGENTA := Color("#c967e8")
-const OPTION_Y := [80, 96, 112, 128, 144]
+const DESKTOP_OPTION_Y := [80, 96, 112, 128, 144]
+const WEB_OPTION_Y := [84, 104, 124, 144]
 const RECENT_SCORE_Y := 174
 const SUBTITLE := "A TINY ARKANOID TRIBUTE BY @ADRIANMG"
 const COMMUNITY_SUBTITLE := "SHARED COMMUNITY LEVEL"
@@ -36,6 +37,7 @@ var _recent_score_state := Leaderboard.STATE_LOADING
 var _recent_score: Dictionary = {}
 var _featured_community_level: Dictionary = {}
 var _notice := ""
+var _web_mode := OS.has_feature("web")
 
 
 func configure_featured_community_level(level: Dictionary) -> void:
@@ -85,7 +87,7 @@ func _draw() -> void:
 		MAGENTA if has_featured_community_level() else WHITE
 	)
 
-	for option_index in range(OPTION_Y.size()):
+	for option_index in range(_option_count()):
 		var option_rect := _get_option_rect(option_index)
 		if option_index == _selected_index:
 			draw_rect(option_rect, RAIL_DARK)
@@ -103,7 +105,7 @@ func _draw() -> void:
 		PixelFont.draw_centered(
 			self,
 			_get_option_text(option_index),
-			OPTION_Y[option_index],
+			_get_option_y(option_index),
 			YELLOW if option_index == _selected_index else WHITE
 		)
 
@@ -197,6 +199,18 @@ static func instruction_lines_for(is_mobile: bool) -> Array[String]:
 	)
 
 
+static func option_ids_for(is_web: bool) -> Array[StringName]:
+	var option_ids: Array[StringName] = [
+		&"play",
+		&"community_lab",
+		&"high_scores",
+	]
+	if not is_web:
+		option_ids.append(&"window")
+	option_ids.append(&"sound")
+	return option_ids
+
+
 func get_recent_score_text() -> String:
 	if not _notice.is_empty():
 		return _fit_text(_notice, 248)
@@ -235,13 +249,13 @@ func get_recent_score_text() -> String:
 
 
 func _select_relative(direction: int) -> void:
-	_selected_index = posmod(_selected_index + direction, OPTION_Y.size())
+	_selected_index = posmod(_selected_index + direction, _option_count())
 	queue_redraw()
 
 
 func _change_selected(direction: int) -> void:
-	match _selected_index:
-		0:
+	match _get_option_id(_selected_index):
+		&"play":
 			if has_featured_community_level():
 				_featured_community_level = {}
 				_notice = ""
@@ -258,60 +272,60 @@ func _change_selected(direction: int) -> void:
 				LevelCatalog.STAGE_COUNT + 1
 			)
 			queue_redraw()
-		3:
+		&"window":
 			DisplayController.cycle_window_mode(direction)
-		4:
+		&"sound":
 			AudioSettings.cycle_level(direction)
 
 
 func _activate_selected() -> void:
-	match _selected_index:
-		0:
+	match _get_option_id(_selected_index):
+		&"play":
 			if has_featured_community_level():
 				community_level_requested.emit(
 					_featured_community_level.duplicate(true)
 				)
 			else:
 				start_requested.emit(_selected_stage)
-		1:
+		&"community_lab":
 			community_lab_requested.emit()
-		2:
+		&"high_scores":
 			high_scores_requested.emit()
-		3:
+		&"window":
 			DisplayController.cycle_window_mode()
-		4:
+		&"sound":
 			AudioSettings.cycle_level(-1)
 
 
 func _get_option_text(option_index: int) -> String:
-	match option_index:
-		0:
+	match _get_option_id(option_index):
+		&"play":
 			return (
 				"PLAY SHARED LEVEL"
 				if has_featured_community_level()
 				else "PLAY STAGE %02d" % _selected_stage
 			)
-		1:
+		&"community_lab":
 			return "COMMUNITY LAB"
-		2:
+		&"high_scores":
 			return "HIGH SCORES"
-		3:
+		&"window":
 			return "WINDOW %s" % DisplayController.get_mode_label()
-		4:
+		&"sound":
 			return "SOUND %s" % AudioSettings.get_level_label()
 
 	return ""
 
 
 func _get_option_rect(option_index: int) -> Rect2:
-	return Rect2(52, OPTION_Y[option_index] - 3, 152, 11)
+	return Rect2(52, _get_option_y(option_index) - 3, 152, 11)
 
 
 func _get_option_at(position: Vector2) -> int:
-	for option_index in range(OPTION_Y.size()):
+	for option_index in range(_option_count()):
 		var hit_rect := Rect2(
 			36,
-			OPTION_Y[option_index] - 8,
+			_get_option_y(option_index) - 8,
 			184,
 			16
 		)
@@ -319,6 +333,23 @@ func _get_option_at(position: Vector2) -> int:
 			return option_index
 
 	return -1
+
+
+func _option_count() -> int:
+	return option_ids_for(_web_mode).size()
+
+
+func _get_option_id(option_index: int) -> StringName:
+	var option_ids := option_ids_for(_web_mode)
+	return option_ids[option_index] if option_index < option_ids.size() else &""
+
+
+func _get_option_y(option_index: int) -> int:
+	return (
+		WEB_OPTION_Y[option_index]
+		if _web_mode
+		else DESKTOP_OPTION_Y[option_index]
+	)
 
 
 func _on_display_mode_changed(_label: String) -> void:
