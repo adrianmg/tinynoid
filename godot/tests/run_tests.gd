@@ -100,6 +100,12 @@ func _test_generated_music() -> void:
 	_check(Pcm8.decode(Pcm8.encode(0.0, 92.0)) == 0, "Signed PCM encodes silence at zero.")
 	_check(Pcm8.decode(Pcm8.encode(1.0, 92.0)) == 92, "Signed PCM preserves positive samples.")
 	_check(Pcm8.decode(Pcm8.encode(-1.0, 92.0)) == -92, "Signed PCM preserves negative samples.")
+	var music_player := MusicControllerState._create_music_player()
+	_check(
+		music_player.playback_type == AudioServer.PLAYBACK_TYPE_STREAM,
+		"Procedural background music forces stream playback for web exports."
+	)
+	music_player.free()
 
 	var stream := MusicController.get_stream()
 	var menu_stream_id := stream.get_instance_id()
