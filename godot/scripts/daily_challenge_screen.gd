@@ -69,6 +69,8 @@ func _draw() -> void:
 	var message := String(_view.get("message", ""))
 	if not message.is_empty():
 		PixelFont.draw_centered(self, _fit_text(message, 204), 78, MAGENTA)
+	elif scores.is_empty():
+		PixelFont.draw_centered(self, "WORLD TOP SCORES", 78, CYAN)
 	else:
 		var end_index := mini(
 			scores.size(),
