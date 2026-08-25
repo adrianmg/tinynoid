@@ -66,7 +66,7 @@ async function handle(request) {
 
   const html = communitySharePage(level);
   const headers = {
-    "Cache-Control": "public, s-maxage=300, stale-while-revalidate=86400",
+    "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
     "Content-Security-Policy":
       "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
     "Content-Type": "text/html; charset=utf-8",

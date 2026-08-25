@@ -12,6 +12,10 @@
   ],
   "rewrites": [
     {
+      "source": "/og/level/:id.png",
+      "destination": "/api/og-level?id=:id"
+    },
+    {
       "source": "/level/:id",
       "destination": "/api/level?slug=:id&legacy=1"
     },

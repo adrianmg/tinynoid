@@ -1,4 +1,5 @@
 import {
+  communityImageUrl,
   communityShareUrl,
   isCommunityLevelId,
 } from "../lib/community-share.js";
@@ -28,13 +29,27 @@ export default {
           status: 404,
         });
       }
+      const imageUrl = communityImageUrl(level, new URL("/", request.url));
+      try {
+        const imageResponse = await fetch(imageUrl, {
+          headers: { Accept: "image/png" },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!imageResponse.ok) {
+          throw new Error(`OG image returned ${imageResponse.status}.`);
+        }
+        await imageResponse.arrayBuffer();
+      } catch (error) {
+        console.warn("Community share image could not be warmed.", error);
+      }
       return Response.json({
         id: level.id,
         slug: level.slug,
-        share_url: communityShareUrl(level),
+        share_url: communityShareUrl(level, true),
+        image_url: imageUrl,
       }, {
         headers: {
-          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=86400",
+          "Cache-Control": "no-store",
         },
       });
     } catch (error) {
