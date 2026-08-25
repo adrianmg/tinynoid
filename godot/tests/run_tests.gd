@@ -1627,10 +1627,14 @@ func _test_leaderboard_client() -> void:
 	restored_client.free()
 
 	var storage_fails := [true]
+	var storage_state: Array[Dictionary] = [{}]
 	var storage_client := LeaderboardClient.new()
 	storage_client.set_state_writer_for_tests(
-		func(_state: Dictionary) -> bool:
-			return not storage_fails[0]
+		func(state: Dictionary) -> bool:
+			if storage_fails[0]:
+				return false
+			storage_state[0] = state.duplicate(true)
+			return true
 	)
 	var failed_run := {
 		"run_id": "0198d71f-1ef3-7000-8000-000000000099",
@@ -1659,14 +1663,14 @@ func _test_leaderboard_client() -> void:
 		"Successful recovery clears the explicit save failure."
 	)
 	storage_client.free()
-
-	var proof_write_count := [0]
-	var proof_client := LeaderboardClient.new()
-	proof_client.set_state_writer_for_tests(
-		func(_state: Dictionary) -> bool:
-			proof_write_count[0] += 1
-			return proof_write_count[0] != 2
+	var restored_storage_client := LeaderboardClient.new()
+	restored_storage_client.call("_restore_state", storage_state[0])
+	_check(
+		not restored_storage_client.has_save_failure(failed_run.run_id),
+		"A successful local-only retry clears its persisted failure."
 	)
+	restored_storage_client.free()
+
 	var proof_run := {
 		"run_id": "0198d71f-1ef3-7000-8000-000000000098",
 		"score": 100,
@@ -1675,6 +1679,22 @@ func _test_leaderboard_client() -> void:
 		"start_stage": 1,
 		"eligible": true,
 	}
+	var durable_proof_state := {
+		"failed_records": {
+			proof_run.run_id: {
+				"run_result": proof_run,
+				"player_name": "@PROOFTEST",
+			},
+		},
+	}
+	var proof_write_count := [0]
+	var proof_client := LeaderboardClient.new()
+	proof_client.call("_restore_state", durable_proof_state)
+	proof_client.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			proof_write_count[0] += 1
+			return false
+	)
 	proof_client.set("_run_tickets", {
 		proof_run.run_id: {
 			"run_token": "test-ticket",
@@ -1682,18 +1702,27 @@ func _test_leaderboard_client() -> void:
 		},
 	})
 	_check(
-		not proof_client.record_score(proof_run, "@PROOFTEST"),
-		"Failure to persist queued proof propagates to the caller."
+		not proof_client.retry_failed_score(proof_run.run_id),
+		"Failure to atomically persist queued proof propagates to the caller."
 	)
 	_check(
 		proof_client.has_save_failure(proof_run.run_id),
-		"Second-write failure remains recoverable instead of reporting success."
+		"Failed durable handoff retains the retry marker in memory."
 	)
 	proof_client.free()
+	var restored_proof_client := LeaderboardClient.new()
+	restored_proof_client.call("_restore_state", durable_proof_state)
+	_check(
+		restored_proof_client.has_save_failure(proof_run.run_id),
+		"Failed durable handoff retains the prior retry marker on disk."
+	)
+	restored_proof_client.free()
 
+	var late_ticket_state: Array[Dictionary] = [{}]
 	var late_client := LeaderboardClient.new()
 	late_client.set_state_writer_for_tests(
-		func(_state: Dictionary) -> bool:
+		func(state: Dictionary) -> bool:
+			late_ticket_state[0] = state.duplicate(true)
 			return true
 	)
 	var late_run := {
@@ -1709,6 +1738,56 @@ func _test_leaderboard_client() -> void:
 		late_client.record_score(late_run, "@LATETEST"),
 		"A terminal score waits while its pre-play ticket is still in flight."
 	)
+	_check(
+		(
+			late_ticket_state[0].get("awaiting_ticket_records", {})
+			as Dictionary
+		).has(late_run.run_id),
+		"Awaiting ticket work is persisted before score submission."
+	)
+	var serialized_awaiting_state := JSON.stringify(late_ticket_state[0])
+	var parsed_awaiting_state: Variant = JSON.parse_string(
+		serialized_awaiting_state
+	)
+	var restored_awaiting_client := LeaderboardClient.new()
+	restored_awaiting_client.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			return true
+	)
+	restored_awaiting_client.call(
+		"_restore_state",
+		parsed_awaiting_state as Dictionary
+	)
+	var restored_awaiting: Dictionary = (
+		restored_awaiting_client.get("_awaiting_ticket_records")
+		as Dictionary
+	)
+	_check(
+		restored_awaiting.has(late_run.run_id)
+		and typeof(
+			(
+				restored_awaiting[late_run.run_id].submission
+				as Dictionary
+			).score
+		) == TYPE_INT,
+		"Awaiting ticket work restores integer fields after a JSON round trip."
+	)
+	restored_awaiting_client.set("_run_tickets", {
+		late_run.run_id: {
+			"run_token": "restored-ticket",
+			"expires_unix": int(Time.get_unix_time_from_system()) + 3600,
+		},
+	})
+	restored_awaiting_client.set("_write_in_flight", true)
+	restored_awaiting_client.call(
+		"_submit_awaiting_ticket_record",
+		late_run.run_id
+	)
+	_check(
+		restored_awaiting_client.pending_submission_count() == 1,
+		"Restored awaiting work enters the persisted send queue."
+	)
+	restored_awaiting_client.free()
 	late_client.set("_run_tickets", {
 		late_run.run_id: {
 			"run_token": "late-ticket",
@@ -1722,6 +1801,104 @@ func _test_leaderboard_client() -> void:
 		"A late ticket moves the completed run into the persisted send queue."
 	)
 	late_client.free()
+	var restored_late_client := LeaderboardClient.new()
+	restored_late_client.call("_restore_state", late_ticket_state[0])
+	_check(
+		not (
+			restored_late_client.get("_awaiting_ticket_records")
+			as Dictionary
+		).has(late_run.run_id),
+		"Persisted awaiting work is removed after it enters the send queue."
+	)
+	restored_late_client.free()
+
+	var failed_ticket_state: Array[Dictionary] = [{}]
+	var failed_ticket_client := LeaderboardClient.new()
+	failed_ticket_client.set_state_writer_for_tests(
+		func(state: Dictionary) -> bool:
+			failed_ticket_state[0] = state.duplicate(true)
+			return true
+	)
+	failed_ticket_client.set("_ticket_requested", {late_run.run_id: true})
+	_check(
+		failed_ticket_client.record_score(late_run, "@LATETEST"),
+		"A terminal score can wait for its initial ticket response."
+	)
+	failed_ticket_client.set("_run_tickets", {
+		late_run.run_id: {
+			"run_token": "expired-ticket",
+			"expires_unix": int(Time.get_unix_time_from_system()) - 1,
+		},
+	})
+	failed_ticket_client.set("_active_ticket_run_id", late_run.run_id)
+	failed_ticket_client.call(
+		"_on_ticket_completed",
+		HTTPRequest.RESULT_SUCCESS,
+		500,
+		PackedStringArray(),
+		PackedByteArray()
+	)
+	_check(
+		failed_ticket_client.has_save_failure(late_run.run_id),
+		"An expired failed ticket becomes retryable instead of remaining stuck."
+	)
+	failed_ticket_client.free()
+	var recovered_ticket_client := LeaderboardClient.new()
+	recovered_ticket_client.call(
+		"_restore_state",
+		JSON.parse_string(
+			JSON.stringify(failed_ticket_state[0])
+		) as Dictionary
+	)
+	_check(
+		recovered_ticket_client.has_save_failure(late_run.run_id),
+		"A retryable ticket failure survives a client reload."
+	)
+	recovered_ticket_client.set_state_writer_for_tests(
+		func(_state: Dictionary) -> bool:
+			return true
+	)
+	recovered_ticket_client.call("_resume_recoverable_records")
+	_check(
+		not recovered_ticket_client.has_save_failure(late_run.run_id)
+		and (
+			recovered_ticket_client.get("_awaiting_ticket_records")
+			as Dictionary
+		).has(late_run.run_id),
+		"Reloaded failures automatically return to the ticket queue."
+	)
+	recovered_ticket_client.free()
+	var malformed_failure_client := LeaderboardClient.new()
+	malformed_failure_client.call("_restore_state", {
+		"failed_records": {
+			late_run.run_id: {"player_name": "@LATETEST"},
+		},
+	})
+	_check(
+		not malformed_failure_client.has_save_failure(late_run.run_id),
+		"Malformed persisted failures are ignored safely."
+	)
+	malformed_failure_client.free()
+	var refresh_client := LeaderboardClient.new()
+	refresh_client.set("_top_in_flight", true)
+	refresh_client.set("_latest_in_flight", true)
+	refresh_client.request_top_scores(25)
+	refresh_client.request_latest_score()
+	_check(
+		bool(refresh_client.get("_top_refresh_requested"))
+		and int(refresh_client.get("_top_refresh_limit")) == 25
+		and bool(refresh_client.get("_latest_refresh_requested")),
+		"Concurrent leaderboard refreshes remain queued instead of being dropped."
+	)
+	var refresh_pending: Array[Dictionary] = [valid_submission.duplicate()]
+	refresh_client.set("_pending_submissions", refresh_pending)
+	refresh_client.call("_flush_deferred_score_reads")
+	_check(
+		not bool(refresh_client.get("_write_in_flight"))
+		and refresh_client.pending_submission_count() == 1,
+		"Deferred reads never retry a failed pending score write."
+	)
+	refresh_client.free()
 
 
 func _test_player_profile() -> void:
