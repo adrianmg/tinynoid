@@ -3,6 +3,7 @@ extends Control
 
 signal level_requested(level: Dictionary)
 signal back_requested
+signal editor_requested
 
 const VOID := Color("#050611")
 const PANEL := Color("#111329")
@@ -13,9 +14,10 @@ const WHITE := Color("#f7f4ff")
 const YELLOW := Color("#ffd84a")
 const MAGENTA := Color("#c967e8")
 const ROW_TOP := 61
-const ROW_HEIGHT := 22
-const VISIBLE_ROWS := 6
-const BACK_RECT := Rect2(75, 211, 106, 14)
+const ROW_HEIGHT := 28
+const VISIBLE_ROWS := 5
+const BACK_RECT := Rect2(75, 207, 106, 14)
+const EDITOR_RECT := Rect2(63, 223, 130, 14)
 const PREVIEW_X := 199
 const PREVIEW_SIZE := Vector2(29, 14)
 
@@ -52,17 +54,26 @@ func _draw() -> void:
 	else:
 		_draw_entries()
 
-	var back_selected := _entries.is_empty() or _selected_index == _entries.size()
+	var back_selected := _selected_index == _back_index()
 	if back_selected:
 		draw_rect(BACK_RECT, RAIL_DARK)
 		draw_rect(Rect2(BACK_RECT.position, Vector2(2, BACK_RECT.size.y)), CYAN)
 	PixelFont.draw_centered(
 		self,
 		"RETURN TO MENU",
-		215,
+		211,
 		YELLOW if back_selected else WHITE
 	)
-	PixelFont.draw_centered(self, "SELECT TO VERIFY ONLINE", 230, CYAN)
+	var editor_selected := _selected_index == _editor_index()
+	if editor_selected:
+		draw_rect(EDITOR_RECT, RAIL_DARK)
+		draw_rect(Rect2(EDITOR_RECT.position, Vector2(2, EDITOR_RECT.size.y)), CYAN)
+	PixelFont.draw_centered(
+		self,
+		"OPEN LEVEL EDITOR",
+		227,
+		YELLOW if editor_selected else CYAN
+	)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -144,37 +155,32 @@ func _draw_entries() -> void:
 	var visible_end := mini(_scroll_offset + VISIBLE_ROWS, _entries.size())
 	for entry_index in range(_scroll_offset, visible_end):
 		var row_index := entry_index - _scroll_offset
-		var row_rect := Rect2(26, ROW_TOP + row_index * ROW_HEIGHT, 204, 20)
+		var row_rect := Rect2(26, ROW_TOP + row_index * ROW_HEIGHT, 204, 26)
 		if entry_index == _selected_index:
 			draw_rect(row_rect, RAIL_DARK)
 			draw_rect(Rect2(row_rect.position, Vector2(2, row_rect.size.y)), CYAN)
 		var entry: Dictionary = _entries[entry_index]
-		var title := "%s — BY %s" % [
-			String(entry.level_name),
-			CommunityCatalogClient.format_creator_name(
-				String(entry.creator_display_name)
-			),
-		]
 		PixelFont.draw_text(
 			self,
-			_fit_text(title, 164),
+			_fit_text(String(entry.level_name), 164),
 			Vector2(31, row_rect.position.y + 3),
 			YELLOW if entry_index == _selected_index else WHITE
 		)
-		var status_text := (
-			"UNREVIEWED"
-			if String(entry.status) == "pending"
-			else "LISTED"
+		PixelFont.draw_text(
+			self,
+			_get_entry_author_text(entry),
+			Vector2(31, row_rect.position.y + 11),
+			CYAN
 		)
 		PixelFont.draw_text(
 			self,
-			status_text,
-			Vector2(31, row_rect.position.y + 11),
+			_get_entry_status_text(entry),
+			Vector2(31, row_rect.position.y + 19),
 			MAGENTA if String(entry.status) == "pending" else CYAN
 		)
 		_draw_level_preview(
 			entry,
-			Vector2(PREVIEW_X, row_rect.position.y + 3),
+			Vector2(PREVIEW_X, row_rect.position.y + 6),
 			entry_index == _selected_index
 		)
 
@@ -210,7 +216,7 @@ func _draw_level_preview(
 
 
 func _select_relative(direction: int) -> void:
-	var item_count := _entries.size() + 1
+	var item_count := _entries.size() + 2
 	_selected_index = posmod(_selected_index + direction, item_count)
 	_ensure_selection_visible()
 	UiAudio.play_move()
@@ -219,8 +225,11 @@ func _select_relative(direction: int) -> void:
 
 func _activate_selected() -> void:
 	UiAudio.play_confirm()
-	if _entries.is_empty() or _selected_index == _entries.size():
+	if _selected_index == _back_index():
 		back_requested.emit()
+		return
+	if _selected_index == _editor_index():
+		editor_requested.emit()
 		return
 	if not _checking_id.is_empty():
 		return
@@ -249,15 +258,39 @@ func _ensure_selection_visible() -> void:
 
 func _get_item_at(position: Vector2) -> int:
 	if BACK_RECT.has_point(position):
-		return _entries.size()
+		return _back_index()
+	if EDITOR_RECT.has_point(position):
+		return _editor_index()
 	for row_index in range(VISIBLE_ROWS):
 		var entry_index := _scroll_offset + row_index
 		if entry_index >= _entries.size():
 			break
-		var rect := Rect2(26, ROW_TOP + row_index * ROW_HEIGHT, 204, 20)
+		var rect := Rect2(26, ROW_TOP + row_index * ROW_HEIGHT, 204, 26)
 		if rect.has_point(position):
 			return entry_index
 	return -1
+
+
+func _back_index() -> int:
+	return _entries.size()
+
+
+func _editor_index() -> int:
+	return _entries.size() + 1
+
+
+func _get_entry_author_text(entry: Dictionary) -> String:
+	return "BY %s" % CommunityCatalogClient.format_creator_name(
+		String(entry.get("creator_display_name", "UNKNOWN"))
+	)
+
+
+func _get_entry_status_text(entry: Dictionary) -> String:
+	return (
+		"UNREVIEWED"
+		if String(entry.get("status", "")) == "pending"
+		else "LISTED"
+	)
 
 
 func _on_catalog_updated(
@@ -269,7 +302,7 @@ func _on_catalog_updated(
 	_state = state
 	_entries = entries
 	_message = message
-	_selected_index = clampi(_selected_index, 0, _entries.size())
+	_selected_index = clampi(_selected_index, 0, _editor_index())
 	_ensure_selection_visible()
 	queue_redraw()
 

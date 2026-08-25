@@ -6,8 +6,7 @@ const VOID := Color("#050611")
 const WHITE := Color("#f7f4ff")
 const CYAN := Color("#74ddff")
 const YELLOW := Color("#ffd84a")
-const MAGENTA := Color("#c967e8")
-const COMMUNITY_INTRO_DURATION := 6.0
+const STAGE_COLUMN_WIDTH := 116
 
 var _score := 0
 var _balls := 3
@@ -16,7 +15,6 @@ var _launch_ready := true
 var _power_up_label := ""
 var _power_up_color := CYAN
 var _power_up_time_left := 0.0
-var _community_intro_time_left := 0.0
 
 
 func _ready() -> void:
@@ -24,8 +22,6 @@ func _ready() -> void:
 	GameSession.state_changed.connect(_on_state_changed)
 	PlayerProfile.name_changed.connect(_on_player_name_changed)
 	_on_state_changed(GameSession.score, GameSession.balls_remaining, GameSession.level)
-	if GameSession.is_community_run():
-		_community_intro_time_left = COMMUNITY_INTRO_DURATION
 
 
 func _draw() -> void:
@@ -35,11 +31,14 @@ func _draw() -> void:
 	PixelFont.draw_text(self, "%06d" % _score, Vector2(8, 11), YELLOW)
 
 	PixelFont.draw_text(self, "STAGE", Vector2(108, 3), WHITE)
-	PixelFont.draw_text(self, "%02d" % _stage, Vector2(116, 11), CYAN)
+	if GameSession.is_community_run():
+		_draw_community_stage()
+	else:
+		PixelFont.draw_text(self, "%02d" % _stage, Vector2(116, 11), CYAN)
 
 	PixelFont.draw_text(self, "BALL", Vector2(196, 3), WHITE)
 	PixelFont.draw_text(self, "%02d" % _balls, Vector2(204, 11), YELLOW)
-	if PlayerProfile.has_player_name():
+	if PlayerProfile.has_player_name() and not GameSession.is_community_run():
 		PixelAvatar.draw(
 			self,
 			PlayerProfile.player_name,
@@ -57,45 +56,58 @@ func _draw() -> void:
 			_power_up_color
 		)
 
-	if _community_intro_time_left > 0.0 and GameSession.is_community_run():
-		draw_rect(Rect2(4, 25, 248, 19), VOID)
-		var community := GameSession.community_level
-		PixelFont.draw_centered(
-			self,
-			"%s — BY %s" % [
-				String(community.get("level_name", "")),
-				CommunityCatalogClient.format_creator_name(
-					String(community.get("creator_display_name", ""))
-				),
-			],
-			27,
-			WHITE
-		)
-		PixelFont.draw_centered(
-			self,
-			"UNREVIEWED"
-			if String(community.get("status", "")) == "pending"
-			else "COMMUNITY LEVEL",
-			36,
-			MAGENTA
-			if String(community.get("status", "")) == "pending"
-			else CYAN
-		)
-
 
 func _process(delta: float) -> void:
-	var redraw := false
 	if _power_up_time_left > 0.0:
 		_power_up_time_left = maxf(0.0, _power_up_time_left - delta)
-		redraw = true
-	if _community_intro_time_left > 0.0:
-		_community_intro_time_left = maxf(
-			0.0,
-			_community_intro_time_left - delta
-		)
-		redraw = true
-	if redraw:
 		queue_redraw()
+
+
+func _draw_community_stage() -> void:
+	var community := GameSession.community_level
+	PixelFont.draw_centered(
+		self,
+		get_stage_value_text(),
+		9,
+		CYAN
+	)
+	var author := get_community_author_text()
+	var author_width := PixelFont.measure(author).x
+	var group_width := 8.0 + 2.0 + author_width
+	var group_x := floorf((256.0 - group_width) / 2.0)
+	PixelAvatar.draw(
+		self,
+		String(community.get("creator_display_name", "")),
+		Vector2(group_x, 15)
+	)
+	PixelFont.draw_text(
+		self,
+		author,
+		Vector2(group_x + 10.0, 17),
+		WHITE
+	)
+
+
+func get_stage_value_text() -> String:
+	if not GameSession.is_community_run():
+		return "%02d" % _stage
+	return _fit_text(
+		String(GameSession.community_level.get("level_name", "LEVEL")),
+		STAGE_COLUMN_WIDTH
+	)
+
+
+func get_community_author_text() -> String:
+	if not GameSession.is_community_run():
+		return ""
+	return CommunityCatalogClient.format_creator_name(
+		String(
+			GameSession.community_level.get(
+				"creator_display_name",
+				"UNKNOWN"
+			)
+		)
+	)
 
 
 func _on_state_changed(score: int, balls_remaining: int, stage: int) -> void:
@@ -143,5 +155,12 @@ func clear_power_up_status() -> void:
 	queue_redraw()
 
 
-func get_community_intro_time_left() -> float:
-	return _community_intro_time_left
+func _fit_text(text: String, maximum_width: int) -> String:
+	if PixelFont.measure(text).x <= maximum_width:
+		return text
+	var shortened := text
+	while shortened.length() > 3:
+		shortened = shortened.left(shortened.length() - 1)
+		if PixelFont.measure(shortened + "...").x <= maximum_width:
+			return shortened + "..."
+	return "..."

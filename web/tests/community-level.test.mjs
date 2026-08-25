@@ -163,6 +163,10 @@ test("ships large social cards and matching metadata", async () => {
   assert.deepEqual(pngDimensions(gameImage), { width: 1200, height: 630 });
   assert.deepEqual(pngDimensions(editorImage), { width: 1200, height: 630 });
   assert.match(gameShell, /property="og:image"/);
+  assert.match(
+    gameShell,
+    /TINYNOID &mdash; A TINY TRIBUTE ARKANOID TRIBUTE BY ADRIAN MATO/,
+  );
   assert.match(gameShell, /name="twitter:card" content="summary_large_image"/);
   assert.match(gameShell, /tinynoid\.vercel\.app\/og-image\.png/);
   assert.match(editorPage, /property="og:image"/);

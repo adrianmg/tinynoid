@@ -16,7 +16,7 @@ review state, verify one online, and begin unranked play with the usual controls
 
 ## Content and constraints
 
-- Each row reads `LEVEL NAME — BY @CREATOR`.
+- Each row stacks `LEVEL NAME`, `BY @CREATOR`, then moderation status.
 - A compact right-aligned 13×10 color preview shows the level silhouette before
   the player verifies it online.
 - Pending records carry the magenta `UNREVIEWED` label; listed records say
@@ -26,7 +26,9 @@ review state, verify one online, and begin unranked play with the usual controls
 - Cached rows are informational until an exact online lookup confirms they
   remain pending or listed.
 - Keyboard, controller, and mouse share the same focus and selection model.
-- Escape and a visible return row lead back to the main menu.
+- Escape and a visible return row lead back to the main menu. A second footer
+  action opens the public level editor; no verification instruction occupies
+  the footer.
 - The 256x240 canvas, bitmap font, hard rails, and opaque palette remain fixed.
 
 ## Chosen direction and memorable moment

@@ -81,9 +81,18 @@ func _show_community_lab(notice: String = "") -> void:
 	_replace_screen(community_lab)
 	community_lab.level_requested.connect(_start_community_game)
 	community_lab.back_requested.connect(_show_main_menu)
+	community_lab.editor_requested.connect(_open_level_editor)
 	if not notice.is_empty():
 		community_lab.show_notice(notice)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _open_level_editor() -> void:
+	var error := OS.shell_open("https://tinynoid.vercel.app/editor/")
+	if error != OK and _current_screen is CommunityLab:
+		(_current_screen as CommunityLab).show_notice(
+			"COULD NOT OPEN LEVEL EDITOR"
+		)
 
 
 func _start_community_game(level_data: Dictionary) -> void:

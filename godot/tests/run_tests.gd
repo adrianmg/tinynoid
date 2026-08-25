@@ -446,6 +446,24 @@ func _test_main_menu() -> void:
 		menu.get_recent_score_text() == "NO RECENT SCORES YET",
 		"The main menu handles an empty leaderboard."
 	)
+	var web_menu: MainMenu = MAIN_MENU_SCENE.instantiate()
+	web_menu.set("_web_mode", true)
+	get_tree().root.add_child(web_menu)
+	await get_tree().process_frame
+	_check(
+		web_menu.call("_option_count") == 4
+		and web_menu.call("_get_option_text", 3).begins_with("SOUND"),
+		"Web menus omit native window controls and keep Sound contiguous."
+	)
+	for web_option_index in range(web_menu.call("_option_count")):
+		_check(
+			not String(
+				web_menu.call("_get_option_text", web_option_index)
+			).begins_with("WINDOW"),
+			"Web menu options never expose Window mode."
+		)
+	web_menu.queue_free()
+	await get_tree().process_frame
 
 	var fire_event := InputEventAction.new()
 	fire_event.action = "launch"
@@ -815,6 +833,22 @@ func _test_community_catalog() -> void:
 		and lab.get_status_text() == "OFFLINE CACHE - RECHECK REQUIRED",
 		"The chooser labels cached offline content and requires verification."
 	)
+	_check(
+		lab.call("_get_entry_author_text", pending_level) == "BY @BUILDER"
+		and lab.call("_get_entry_status_text", pending_level) == "UNREVIEWED",
+		"Community rows place the author on a line before moderation status."
+	)
+	var editor_requests := [0]
+	lab.editor_requested.connect(
+		func() -> void:
+			editor_requests[0] += 1
+	)
+	lab.set("_selected_index", lab.call("_editor_index"))
+	lab.call("_activate_selected")
+	_check(
+		editor_requests[0] == 1,
+		"Community Lab exposes the level editor as a footer action."
+	)
 	var original_catalog_entries := CommunityCatalog.cached_entries()
 	var singleton_catalog_entry: Array[Dictionary] = [pending_level]
 	CommunityCatalog.set("_entries", singleton_catalog_entry)
@@ -923,8 +957,17 @@ func _test_community_catalog() -> void:
 	get_tree().root.add_child(community_hud)
 	await get_tree().process_frame
 	_check(
-		community_hud.get_community_intro_time_left() > 5.0,
-		"Community attribution remains visible long enough to read."
+		community_hud.get_stage_value_text() == pending_level.level_name,
+		"The HUD replaces the community stage number with the level name."
+	)
+	_check(
+		PixelFont.measure(community_hud.get_stage_value_text()).x
+			<= RetroHud.STAGE_COLUMN_WIDTH,
+		"Community level names remain inside the Stage column."
+	)
+	_check(
+		community_hud.get_community_author_text() == "@BUILDER",
+		"The HUD keeps the community avatar and author in the Stage column."
 	)
 	community_hud.queue_free()
 	await get_tree().process_frame
