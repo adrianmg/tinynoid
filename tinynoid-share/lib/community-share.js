@@ -4,6 +4,7 @@ export const SUPABASE_API =
 export const SUPABASE_REST = "https://ugkygoijpqrreooylpnc.supabase.co/rest/v1";
 export const SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_GMQxCnYtLe3qCkV1Nc3N2w_5JXyve-X";
+export const COMMUNITY_IMAGE_VERSION = "2";
 
 const ID_PATTERN = /^cl_[0-9a-f]{24}$/;
 const NAME_PATTERN = /^[A-Z0-9 @._-]+$/;
@@ -62,17 +63,21 @@ export function communityPlayUrl(levelId) {
   return url.href;
 }
 
-export function communityShareUrl(level) {
+export function communityShareUrl(level, versioned = false) {
   const url = new URL(PUBLIC_URL);
   url.pathname = level.slug;
+  if (versioned) url.searchParams.set("v", communityShareVersion(level));
   return url.href;
 }
 
-export function communityImageUrl(level) {
+export function communityShareVersion(level) {
+  return `${COMMUNITY_IMAGE_VERSION}-${level.status}`;
+}
+
+export function communityImageUrl(level, publicUrl = PUBLIC_URL) {
   if (!isCommunityLevelId(level?.id)) return "";
-  const url = new URL(`${SUPABASE_API}/share-level`);
-  url.searchParams.set("id", level.id);
-  url.searchParams.set("image", "1");
+  const url = new URL(`og/level/${level.id}.png`, publicUrl);
+  url.searchParams.set("v", communityShareVersion(level));
   return url.href;
 }
 
@@ -91,7 +96,7 @@ function escapeHtml(value) {
 }
 
 export function communitySharePage(level) {
-  const shareUrl = communityShareUrl(level);
+  const shareUrl = communityShareUrl(level, true);
   const destination = communityPlayUrl(level.id);
   const imageUrl = communityImageUrl(level);
   const title = `${level.level_name} - TINYNOID Community Level`;
