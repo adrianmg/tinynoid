@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   canonicalText,
+  communityLevelShareText,
   communityLevelUrl,
   contentHash,
   emptyLayout,
@@ -151,6 +152,19 @@ test("generates canonical community level deep links", () => {
     "https://example.com/game/?community=cl_6c4e88e29b91f4d2f386647f",
   );
   assert.equal(communityLevelUrl("cl_short"), "");
+});
+
+test("embeds the community level URL in share text", () => {
+  assert.equal(
+    communityLevelShareText(
+      "Neon Run",
+      "https://tinynoid.vercel.app/neon-run",
+    ),
+    "Play NEON RUN, a TINYNOID community level.\n" +
+      "https://tinynoid.vercel.app/neon-run\n\n" +
+      "Create your own level https://tinynoid.vercel.app/editor/",
+  );
+  assert.equal(communityLevelShareText("NEON RUN", "not a URL"), "");
 });
 
 test("ships large social cards and matching metadata", async () => {

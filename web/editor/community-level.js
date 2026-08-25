@@ -12,6 +12,7 @@ export const LEVEL_SCHEMA = Object.freeze({
 });
 
 export const GAME_URL = "https://tinynoid.vercel.app/";
+export const EDITOR_URL = `${GAME_URL}editor/`;
 
 const NAME_PATTERN = /^[A-Z0-9 @._-]+$/;
 const ID_PATTERN = /^cl_[0-9a-f]{24}$/;
@@ -226,4 +227,22 @@ export function communityLevelFallbackUrl(
 ) {
   if (!isCommunityLevelId(levelId)) return "";
   return new URL(`level/${levelId}`, shareUrl).href;
+}
+
+export function communityLevelShareText(levelName, shareUrl) {
+  const normalizedName = normalizeName(levelName);
+  if (!normalizedName || typeof shareUrl !== "string") return "";
+  let url;
+  try {
+    url = new URL(shareUrl);
+  } catch {
+    return "";
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return "";
+  return [
+    `Play ${normalizedName}, a TINYNOID community level.`,
+    url.href,
+    "",
+    `Create your own level ${EDITOR_URL}`,
+  ].join("\n");
 }

@@ -22,7 +22,7 @@ static func _share_text(
 	var text := "I scored %d points in TINYNOID!" % score
 	if outcome == "campaign_clear":
 		text = "I cleared TINYNOID with %d points!" % score
-	return text
+	return "%s\n%s" % [text, GAME_URL]
 
 
 static func _share_on_web(
@@ -32,10 +32,8 @@ static func _share_on_web(
 	var script := """
 (() => {
   const text = %s;
-  const gameUrl = %s;
   const fallbackUrl =
-    "https://x.com/intent/post?text=" + encodeURIComponent(text)
-    + "&url=" + encodeURIComponent(gameUrl);
+    "https://x.com/intent/post?text=" + encodeURIComponent(text);
   const fallback = () => (
     window.open(fallbackUrl, "_blank", "noopener,noreferrer") !== null
   );
@@ -46,7 +44,6 @@ static func _share_on_web(
     const shareData = {
       title: "TINYNOID SCORE",
       text,
-      url: gameUrl,
       files: [file],
     };
     if (
@@ -64,14 +61,10 @@ static func _share_on_web(
 })();
 """ % [
 		JSON.stringify(text),
-		JSON.stringify(GAME_URL),
 		JSON.stringify(Marshalls.raw_to_base64(png_data)),
 	]
 	return bool(JavaScriptBridge.eval(script, true))
 
 
 static func _x_intent_url(text: String) -> String:
-	return "https://x.com/intent/post?text=%s&url=%s" % [
-		text.uri_encode(),
-		GAME_URL.uri_encode(),
-	]
+	return "https://x.com/intent/post?text=%s" % text.uri_encode()

@@ -1,5 +1,6 @@
 import {
   communityLevelFallbackUrl,
+  communityLevelShareText,
   communityLevelUrl,
   emptyLayout,
   gridNavigationTarget,
@@ -426,7 +427,8 @@ async function resolveCommunityShareUrl(levelId) {
 async function shareLevelLink(button) {
   const url = button.dataset.shareUrl;
   const levelName = button.dataset.levelName;
-  if (!url || !levelName) {
+  const text = communityLevelShareText(levelName, url);
+  if (!text) {
     button.textContent = "LINK UNAVAILABLE";
     return;
   }
@@ -435,8 +437,7 @@ async function shareLevelLink(button) {
     try {
       await navigator.share({
         title: `${levelName} - TINYNOID`,
-        text: `Play ${levelName}, a TINYNOID community level.`,
-        url,
+        text,
       });
       return;
     } catch (error) {
