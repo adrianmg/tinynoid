@@ -58,6 +58,9 @@ var _ticket_request: HTTPRequest
 var _top_in_flight := false
 var _latest_in_flight := false
 var _write_in_flight := false
+var _top_refresh_requested := false
+var _latest_refresh_requested := false
+var _top_refresh_limit := MAX_ENTRIES
 var _active_run_id := ""
 var _active_ticket_run_id := ""
 var _state_writer: Callable
@@ -69,12 +72,19 @@ func _ready() -> void:
 	_latest_request = _create_request(_on_latest_score_completed)
 	_write_request = _create_request(_on_submission_completed)
 	_ticket_request = _create_request(_on_ticket_completed)
+	_resume_recoverable_records()
 
 
 func request_top_scores(limit: int = MAX_ENTRIES) -> void:
 	if _top_in_flight:
+		_top_refresh_requested = true
+		_top_refresh_limit = clampi(limit, 1, MAX_ENTRIES)
 		return
 	_flush_pending_submission()
+	_start_top_scores_request(clampi(limit, 1, MAX_ENTRIES))
+
+
+func _start_top_scores_request(limit: int) -> void:
 	_top_in_flight = true
 	top_scores_updated.emit(
 		STATE_LOADING,
@@ -85,7 +95,7 @@ func request_top_scores(limit: int = MAX_ENTRIES) -> void:
 		_rpc_url("get_top_scores"),
 		_request_headers(),
 		HTTPClient.METHOD_POST,
-		JSON.stringify({"p_limit": clampi(limit, 1, MAX_ENTRIES)})
+		JSON.stringify({"p_limit": limit})
 	)
 	if error != OK:
 		_top_in_flight = false
@@ -96,8 +106,13 @@ func request_top_scores(limit: int = MAX_ENTRIES) -> void:
 
 func request_latest_score() -> void:
 	if _latest_in_flight:
+		_latest_refresh_requested = true
 		return
 	_flush_pending_submission()
+	_start_latest_score_request()
+
+
+func _start_latest_score_request() -> void:
 	_latest_in_flight = true
 	latest_score_updated.emit(
 		STATE_LOADING,
@@ -158,40 +173,51 @@ func record_score(run_result: Dictionary, player_name: String) -> bool:
 	if local_entry.player_name.is_empty():
 		local_entry.player_name = "GUEST"
 	_remember_local_score(local_entry)
-	if not _save_state():
-		_failed_records[local_entry.run_id] = {
-			"run_result": run_result.duplicate(true),
-			"player_name": player_name,
-		}
-		submission_failed.emit(
-			local_entry.run_id,
-			"Score could not be saved on this device."
-		)
-		return false
-	_failed_records.erase(local_entry.run_id)
+	var failure_record := {
+		"run_result": run_result.duplicate(true),
+		"player_name": player_name,
+	}
 
 	if (
 		not bool(run_result.get("eligible", false))
 		or local_entry.player_name == "GUEST"
 	):
+		_failed_records.erase(local_entry.run_id)
+		if not _save_state():
+			_failed_records[local_entry.run_id] = failure_record
+			submission_failed.emit(
+				local_entry.run_id,
+				"Score could not be saved on this device."
+			)
+			return false
 		return true
 	if not _ticket_is_current(local_entry.run_id):
-		if _ticket_requested.has(local_entry.run_id):
-			_awaiting_ticket_records[local_entry.run_id] = {
-				"submission": local_entry.duplicate(true),
-				"run_result": run_result.duplicate(true),
-				"player_name": player_name,
-			}
+		_awaiting_ticket_records[local_entry.run_id] = {
+			"submission": local_entry.duplicate(true),
+			"run_result": run_result.duplicate(true),
+			"player_name": player_name,
+		}
+		_failed_records.erase(local_entry.run_id)
+		if not _save_state():
+			_awaiting_ticket_records.erase(local_entry.run_id)
+			_failed_records[local_entry.run_id] = failure_record
+			submission_failed.emit(
+				local_entry.run_id,
+				"Score proof could not be saved for retry."
+			)
+			return false
+		if not _ticket_requested.has(local_entry.run_id):
+			register_run(local_entry.run_id)
 		return true
 
 	local_entry["run_token"] = String(
 		_run_tickets[local_entry.run_id].run_token
 	)
+	_failed_records.erase(local_entry.run_id)
 	if not submit_score(local_entry):
-		_failed_records[local_entry.run_id] = {
-			"run_result": run_result.duplicate(true),
-			"player_name": player_name,
-		}
+		_failed_records[local_entry.run_id] = failure_record
+		if not _save_state():
+			push_warning("Could not persist retryable score submission.")
 		return false
 	return true
 
@@ -352,8 +378,13 @@ func _flush_ticket_request() -> void:
 		JSON.stringify({"run_id": _active_ticket_run_id})
 	)
 	if error != OK:
+		var failed_run_id := _active_ticket_run_id
 		_ticket_requested.erase(_active_ticket_run_id)
 		_active_ticket_run_id = ""
+		_fail_awaiting_ticket_record(
+			failed_run_id,
+			"Could not request score proof: %s" % error_string(error)
+		)
 		_flush_ticket_request()
 
 
@@ -377,10 +408,15 @@ func _on_ticket_completed(
 				"run_token": String(decoded.value.run_token),
 				"expires_unix": int(Time.get_unix_time_from_system()) + 21600,
 			}
-			_submit_awaiting_ticket_record(run_id)
 	_ticket_requested.erase(run_id)
-	if not _run_tickets.has(run_id):
-		_awaiting_ticket_records.erase(run_id)
+	if _ticket_is_current(run_id):
+		_submit_awaiting_ticket_record(run_id)
+	else:
+		_run_tickets.erase(run_id)
+		_fail_awaiting_ticket_record(
+			run_id,
+			"Score proof could not be verified. Retry the score."
+		)
 	_flush_ticket_request()
 
 
@@ -403,6 +439,39 @@ func _submit_awaiting_ticket_record(run_id: String) -> void:
 	)
 
 
+func _fail_awaiting_ticket_record(run_id: String, message: String) -> void:
+	if not _awaiting_ticket_records.has(run_id):
+		return
+	var awaiting: Dictionary = _awaiting_ticket_records[run_id]
+	_awaiting_ticket_records.erase(run_id)
+	_failed_records[run_id] = {
+		"run_result": (awaiting.run_result as Dictionary).duplicate(true),
+		"player_name": String(awaiting.player_name),
+	}
+	if not _save_state():
+		push_warning("Could not persist retryable score proof failure.")
+	submission_failed.emit(run_id, message)
+
+
+func _resume_recoverable_records() -> void:
+	for run_id in _failed_records.keys():
+		retry_failed_score(String(run_id))
+	for run_id in _awaiting_ticket_records:
+		register_run(String(run_id))
+
+
+func _flush_deferred_score_reads() -> void:
+	if _write_in_flight:
+		return
+	if _top_refresh_requested and not _top_in_flight:
+		var limit := _top_refresh_limit
+		_top_refresh_requested = false
+		_start_top_scores_request(limit)
+	if _latest_refresh_requested and not _latest_in_flight:
+		_latest_refresh_requested = false
+		_start_latest_score_request()
+
+
 func _on_top_scores_completed(
 	result: int,
 	response_code: int,
@@ -410,6 +479,7 @@ func _on_top_scores_completed(
 	body: PackedByteArray
 ) -> void:
 	_top_in_flight = false
+	call_deferred("_flush_deferred_score_reads")
 	var decoded := _decode_successful_response(
 		result,
 		response_code,
@@ -446,6 +516,7 @@ func _on_latest_score_completed(
 	body: PackedByteArray
 ) -> void:
 	_latest_in_flight = false
+	call_deferred("_flush_deferred_score_reads")
 	var decoded := _decode_successful_response(
 		result,
 		response_code,
@@ -485,6 +556,7 @@ func _on_submission_completed(
 	body: PackedByteArray
 ) -> void:
 	_write_in_flight = false
+	call_deferred("_flush_deferred_score_reads")
 	var run_id := _active_run_id
 	_active_run_id = ""
 
@@ -525,6 +597,8 @@ func _on_submission_completed(
 	_submitted_runs[run_id] = true
 	_save_state()
 	score_submitted.emit(run_id, bool(response.get("created", false)))
+	_top_refresh_requested = true
+	_latest_refresh_requested = true
 	_flush_pending_submission()
 
 
@@ -580,6 +654,77 @@ func _restore_state(state: Dictionary) -> void:
 			var normalized := _normalize_submission(submission)
 			if validate_submission(normalized).is_empty():
 				_pending_submissions.append(normalized)
+	_failed_records.clear()
+	var failed: Variant = state.get("failed_records", {})
+	if failed is Dictionary:
+		for run_id in failed:
+			var record: Variant = failed[run_id]
+			var player_name := (
+				String(record.get("player_name", ""))
+				if record is Dictionary
+				else ""
+			)
+			var run_result := _normalize_recoverable_run_result(
+				record.get("run_result") if record is Dictionary else null,
+				player_name,
+				String(run_id)
+			)
+			if (
+				run_result.is_empty()
+				or _has_pending_submission(String(run_id))
+			):
+				continue
+			_failed_records[String(run_id)] = {
+				"run_result": run_result,
+				"player_name": player_name,
+			}
+	_awaiting_ticket_records.clear()
+	var awaiting: Variant = state.get("awaiting_ticket_records", {})
+	if awaiting is Dictionary:
+		for run_id in awaiting:
+			var record: Variant = awaiting[run_id]
+			var submission: Variant = (
+				record.get("submission")
+				if record is Dictionary
+				else null
+			)
+			var run_result: Variant = (
+				record.get("run_result")
+				if record is Dictionary
+				else null
+			)
+			if (
+				not _is_valid_run_id(String(run_id))
+				or not record is Dictionary
+				or not submission is Dictionary
+				or _has_pending_submission(String(run_id))
+				or _failed_records.has(String(run_id))
+			):
+				continue
+			var player_name := String(record.get("player_name", ""))
+			var normalized_submission := _normalize_submission(
+				submission as Dictionary
+			)
+			normalized_submission["run_token"] = "restored-ticket"
+			var normalized_result := _normalize_recoverable_run_result(
+				run_result,
+				player_name,
+				String(run_id)
+			)
+			if (
+				String(normalized_submission.run_id) != String(run_id)
+				or not validate_submission(
+					normalized_submission
+				).is_empty()
+				or normalized_result.is_empty()
+			):
+				continue
+			normalized_submission["run_token"] = ""
+			_awaiting_ticket_records[String(run_id)] = {
+				"submission": normalized_submission,
+				"run_result": normalized_result,
+				"player_name": player_name,
+			}
 	_fetched_at = String(state.get("fetched_at", ""))
 	_latest_fetched_at = String(state.get("latest_fetched_at", ""))
 
@@ -592,6 +737,8 @@ func _save_state() -> bool:
 		"latest_fetched_at": _latest_fetched_at,
 		"local_scores": _local_scores,
 		"pending_submissions": _pending_submissions,
+		"failed_records": _failed_records,
+		"awaiting_ticket_records": _awaiting_ticket_records,
 	}
 	if _state_writer.is_valid():
 		return bool(_state_writer.call(state))
@@ -691,6 +838,40 @@ func _normalize_submission(submission: Dictionary) -> Dictionary:
 		"completed_stage": int(submission.get("completed_stage", 0)),
 		"start_stage": int(submission.get("start_stage", 0)),
 		"run_token": String(submission.get("run_token", "")),
+	}
+
+
+func _normalize_recoverable_run_result(
+	value: Variant,
+	player_name: String,
+	expected_run_id: String
+) -> Dictionary:
+	if not value is Dictionary or not bool(value.get("eligible", false)):
+		return {}
+	var normalized := _normalize_submission({
+		"run_id": value.get("run_id", ""),
+		"player_name": player_name,
+		"score": value.get("score", -1),
+		"outcome": value.get("outcome", ""),
+		"completed_stage": value.get("completed_stage", 0),
+		"start_stage": value.get("start_stage", 0),
+		"run_token": "restored-ticket",
+	})
+	normalized["run_kind"] = String(value.get("run_kind", "campaign"))
+	normalized["community_id"] = String(value.get("community_id", ""))
+	if (
+		String(normalized.run_id) != expected_run_id
+		or not validate_submission(normalized).is_empty()
+	):
+		return {}
+	return {
+		"run_id": String(normalized.run_id),
+		"score": int(normalized.score),
+		"outcome": String(normalized.outcome),
+		"completed_stage": int(normalized.completed_stage),
+		"start_stage": int(normalized.start_stage),
+		"run_kind": String(normalized.run_kind),
+		"eligible": true,
 	}
 
 
