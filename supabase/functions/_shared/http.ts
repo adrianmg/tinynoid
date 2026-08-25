@@ -1,5 +1,5 @@
 const ALLOWED_WEB_ORIGINS = new Set([
-  "https://adrianmg.github.io",
+  "https://tinynoid.vercel.app",
 ]);
 const LOCAL_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
 
@@ -55,6 +55,27 @@ export function errorResponse(
 ): Response {
   const body: ErrorBody = { error: { code, message } };
   return jsonResponse(body, status, origin, methods, extraHeaders);
+}
+
+export function publicErrorResponse(
+  code: string,
+  message: string,
+  status: number,
+  methods: string,
+  extraHeaders?: HeadersInit,
+): Response {
+  const headers = new Headers({
+    "Access-Control-Allow-Methods": methods,
+    "Cache-Control": "no-store",
+    "Content-Type": "application/json; charset=utf-8",
+  });
+  if (extraHeaders) {
+    new Headers(extraHeaders).forEach((value, key) => headers.set(key, value));
+  }
+  return new Response(JSON.stringify({ error: { code, message } }), {
+    status,
+    headers,
+  });
 }
 
 export function rejectedOriginResponse(methods: string): Response {

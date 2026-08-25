@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://adrianmg.github.io/tinynoid/schema/community-level-v1.schema.json",
+  "$id": "https://tinynoid.vercel.app/schema/community-level-v1.schema.json",
   "title": "TINYNOID community level",
   "description": "Immutable canonical payload accepted by the Community Lab.",
   "type": "object",

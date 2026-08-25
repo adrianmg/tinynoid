@@ -139,9 +139,7 @@ a:hover {
   min-height: min(620px, calc(100vh - 160px));
   border: 2px solid var(--rail-blue);
   background: var(--ink);
-  box-shadow:
-    8px 8px 0 var(--rail-shadow),
-    inset 0 0 0 2px var(--void);
+  box-shadow: 8px 8px 0 var(--rail-shadow), inset 0 0 0 2px var(--void);
 }
 
 .compose-panel {
@@ -564,9 +562,50 @@ button:disabled {
   color: var(--green);
 }
 
-.submission-status a {
-  display: inline-block;
-  margin-top: 8px;
+.share-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.share-url {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 9px;
+  border: 2px solid var(--rail-blue);
+  border-radius: 0;
+  color: var(--white);
+  background: var(--void);
+  font-size: 10px;
+  text-transform: none;
+}
+
+.share-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.share-actions a,
+.share-link-action {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 10px;
+  border: 2px solid var(--rail-blue);
+  color: var(--white);
+  background: transparent;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+}
+
+.share-actions a:hover,
+.share-link-action:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
 }
 
 .page-footer {

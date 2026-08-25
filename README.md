@@ -5,9 +5,9 @@ procedurally generated graphics and music.
 
 ## Play on any platform
 
-[▶ Play TINYNOID in your browser](https://adrianmg.github.io/tinynoid/)
+[▶ Play TINYNOID in your browser](https://tinynoid.vercel.app/)
 
-[🧱 Build a Community Lab level](https://adrianmg.github.io/tinynoid/editor/)
+[🧱 Build a Community Lab level](https://tinynoid.vercel.app/editor/)
 
 | Platform | Download |
 | --- | --- |
@@ -45,9 +45,10 @@ main scene.
 - Compatible capsule effects stack together until life loss or stage clear
 - Protected random drops reward the opening and prevent long dry streaks
 - Global Top 100 scores with offline local history
-- Post-game X/Twitter handles and palette-pixelated profile avatars
+- Post-game X/Twitter handles and deterministic pixel avatars
 - Unranked Community Lab levels with creator attribution and moderation status
 - Mobile-friendly fixed-grid community level editor
+- Personalized share links with level-specific pixel-art previews
 - Shareable Game Over and Campaign Clear score cards
 - Standard, multi-hit Silver, and indestructible Gold bricks
 - Pixel-perfect 256×240 rendering with integer scaling
@@ -61,6 +62,8 @@ Run the headless test suite:
 ```sh
 godot --headless --path godot res://tests/test_runner.tscn
 node --test web/tests/*.test.mjs
+deno test supabase/functions/_shared/*_test.ts
+npm run build --prefix tinynoid-share
 ```
 
 Serve the static level editor locally:
@@ -73,9 +76,20 @@ Then open <http://127.0.0.1:4173/editor/>. Community levels and their secure
 Supabase deployment contract are documented in
 [`docs/community-levels.md`](docs/community-levels.md).
 
+## Deployment
+
+Vercel hosts the complete production app at
+[tinynoid.vercel.app](https://tinynoid.vercel.app/). The connected Vercel
+project uses `tinynoid-share/` as its root and deploys `main` automatically.
+Its build exports Godot Web and places the editor, schema, social cards, and
+friendly community-level pages under the same domain.
+The Vercel project setting **Include files outside the Root Directory in the
+Build Step** must remain enabled because the build reads `godot/`, `web/`,
+`schema/`, and `.github/scripts/`.
+
+Supabase remains the leaderboard, community catalog, moderation, and dynamic
+level-preview backend. Friendly level slugs are resolved by a database RPC so
+published links remain stable as the catalog grows.
+
 The legacy Unity project remains in the repository as migration history. The
 Godot game uses original layouts and generated presentation assets.
-
-## Credits
-
-[X/Twitter avatars provided by Unavatar](https://unavatar.io).

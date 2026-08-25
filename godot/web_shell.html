@@ -3,6 +3,39 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<meta name="theme-color" content="#050611">
+		<meta
+			name="description"
+			content="Play TINYNOID, a compact browser paddle-breaker with 33 stages, eight capsules, global high scores, and community levels."
+		>
+		<link rel="canonical" href="https://tinynoid.vercel.app/">
+		<meta property="og:type" content="website">
+		<meta property="og:site_name" content="TINYNOID">
+		<meta property="og:url" content="https://tinynoid.vercel.app/">
+		<meta property="og:title" content="TINYNOID - A Tiny Arcade Paddle-Breaker">
+		<meta
+			property="og:description"
+			content="Clear 33 stages, collect eight game-changing capsules, chase global high scores, and play community-built levels."
+		>
+		<meta property="og:image" content="https://tinynoid.vercel.app/og-image.png">
+		<meta property="og:image:type" content="image/png">
+		<meta property="og:image:width" content="1200">
+		<meta property="og:image:height" content="630">
+		<meta
+			property="og:image:alt"
+			content="TINYNOID title beside its colorful Stage 1 brick layout."
+		>
+		<meta name="twitter:card" content="summary_large_image">
+		<meta name="twitter:title" content="TINYNOID - A Tiny Arcade Paddle-Breaker">
+		<meta
+			name="twitter:description"
+			content="Clear 33 stages, collect eight capsules, chase global high scores, and play community-built levels."
+		>
+		<meta name="twitter:image" content="https://tinynoid.vercel.app/og-image.png">
+		<meta
+			name="twitter:image:alt"
+			content="TINYNOID title beside its colorful Stage 1 brick layout."
+		>
 		<title>$GODOT_PROJECT_NAME</title>
 		<style>
 html, body, #canvas {
@@ -24,23 +57,6 @@ body {
 
 #canvas:focus {
 	outline: none;
-}
-
-#avatar-credit {
-	position: fixed;
-	right: 6px;
-	bottom: 4px;
-	z-index: 2;
-	color: #74ddff;
-	font: 9px Arial, sans-serif;
-	opacity: 0.72;
-	text-decoration: none;
-}
-
-#avatar-credit:focus,
-#avatar-credit:hover {
-	opacity: 1;
-	text-decoration: underline;
 }
 
 #status {
@@ -70,12 +86,6 @@ body {
 		<canvas id="canvas">
 			Your browser does not support the canvas tag.
 		</canvas>
-		<a
-			id="avatar-credit"
-			href="https://unavatar.io"
-			target="_blank"
-			rel="noopener"
-		>Avatars by Unavatar</a>
 		<noscript>Your browser does not support JavaScript.</noscript>
 		<div id="status">
 			<progress id="status-progress"></progress>

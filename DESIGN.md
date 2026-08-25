@@ -70,6 +70,14 @@ stage. Result states reuse the same arena rather than switching to generic UI.
 - Hard-edged geometry and one-pixel highlight/shadow bands.
 - Dense gameplay framed by generous cartridge-black negative space.
 
+### Social Preview Cards
+
+Website and editor shares use 1200x630 PNG cards built from the same opaque
+palette and exact 3x5 bitmap glyphs as the game. The website card pairs the
+masthead with a nearest-neighbor Stage 1 capture; the editor card enlarges the
+13x10 workbench and its publish/share controls. Text remains sparse enough to
+read when social clients reduce the card to a small feed thumbnail.
+
 ## Colors
 
 The palette pairs a near-black console field with an ice-blue machine frame and
@@ -191,7 +199,7 @@ repeats and every effect that is already active.
 ### HUD
 
 A single compact top strip: score on the left, stage centered, and balls on the
-right. A named player's 8x8 palette-pixelated X avatar sits beside the ball
+right. A named player's deterministic 8x8 pixel avatar sits beside the ball
 count. The product masthead is deliberately omitted during gameplay. The launch
 cue reads `PRESS SPACEBAR OR TAP TO FIRE`, is centered at the bottom, and
 disappears immediately after launch. A primary touch positions the paddle; a
@@ -216,8 +224,17 @@ Play is selected.
 Sound is rendered as `III`, `II`, `I`, or `OFF`, preserving the cartridge
 language while communicating four discrete master-volume states. The title
 subtitle reads `A TINY ARKANOID TRIBUTE BY @ADRIANMG`. The lower region
-contains `ARROW KEYS TO MOVE & SELECT`, `ENTER / SPACE / TAP TO SELECT`, and
-Escape instructions. Tapping an option activates it directly.
+contains keyboard-specific guidance on desktop and switches to tap, drag,
+launch/fire, and swipe guidance on phones and tablets. Tapping anywhere across
+an option's full row activates it directly.
+Verified community links retain this cartridge menu rather than auto-launching:
+the subtitle becomes `SHARED COMMUNITY LEVEL`, the first focused action becomes
+`PLAY SHARED LEVEL`, and the linked level name and creator replace recent-score
+copy until the player deliberately starts it.
+
+Each shared community level also receives a generated 1200x630 social card. It
+uses the same bitmap alphabet and palette, names the level and creator, carries
+the moderation label, and renders the immutable 13x10 brick layout.
 Moving focus produces a short descending pulse tick; activating an option uses
 a brighter ascending two-note chirp. Both are generated, persistent across scene
 changes, and follow the menu Sound setting.
@@ -238,14 +255,17 @@ octave lift.
 The first terminal score asks for an X/Twitter handle through a physical
 keyboard or a visible cartridge-style glyph grid. The `@` prefix is shown and
 stored implicitly, while entry is limited to X-compatible `A-Z`, `0-9`, and
-`_`. Players may skip and remain guests. Named players receive their public X
-profile image, center-cropped to 8x8 and reduced to the TINYNOID palette; a
-neutral placeholder remains visible while lookup is unavailable.
+`_`. Players may skip and remain guests. Named players receive a deterministic,
+palette-constrained 8x8 pixel avatar generated locally from their handle.
 
 The leaderboard shows fourteen of the global Top 100 rows at once. Up and Down
 move one row, Left and Right move by a page, and the mouse wheel scrolls. The
 footer always exposes the visible range and whether results are live, cached
 offline, or local-only.
+
+Community Lab rows normalize creator labels to one leading `@` and reserve their
+right edge for a compact 13x10 color silhouette. The selected silhouette gains a
+yellow frame, making the level shape visible before online verification.
 
 ## Do's and Don'ts
 

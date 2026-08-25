@@ -16,7 +16,9 @@ review state, verify one online, and begin unranked play with the usual controls
 
 ## Content and constraints
 
-- Each row reads `LEVEL NAME — BY CREATOR`.
+- Each row reads `LEVEL NAME — BY @CREATOR`.
+- A compact right-aligned 13×10 color preview shows the level silhouette before
+  the player verifies it online.
 - Pending records carry the magenta `UNREVIEWED` label; listed records say
   `LISTED`.
 - Loading, empty, live, cached-offline, verification, and failure states are

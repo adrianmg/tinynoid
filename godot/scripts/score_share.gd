@@ -1,45 +1,27 @@
 class_name ScoreShare
 extends RefCounted
 
-const GAME_URL := "https://adrianmg.github.io/tinynoid/"
+const GAME_URL := "https://tinynoid.vercel.app/"
 
 
-static func share(
-	player_name: String,
+static func share_on_twitter(
 	score: int,
 	outcome: String,
 	png_data: PackedByteArray
 ) -> bool:
-	var text := _share_text(player_name, score, outcome)
-
+	var text := _share_text(score, outcome)
 	if OS.has_feature("web"):
 		return _share_on_web(text, png_data)
 	return OS.shell_open(_x_intent_url(text)) == OK
 
 
-static func share_on_twitter(
-	player_name: String,
-	score: int,
-	outcome: String
-) -> bool:
-	var text := _share_text(player_name, score, outcome)
-	return OS.shell_open(_x_intent_url(text)) == OK
-
-
 static func _share_text(
-	player_name: String,
 	score: int,
 	outcome: String
 ) -> String:
-	var text := "%s scored %d points in TINYNOID!" % [
-		player_name,
-		score,
-	]
+	var text := "I scored %d points in TINYNOID!" % score
 	if outcome == "campaign_clear":
-		text = "%s cleared TINYNOID with %d points!" % [
-			player_name,
-			score,
-		]
+		text = "I cleared TINYNOID with %d points!" % score
 	return text
 
 

@@ -25,11 +25,14 @@ delete from public.scores where run_id = '<run UUID>';
 
 ## Community levels
 
-`submit-level` accepts canonical version 1 level documents and
-`community-levels` returns the bounded public catalog. Both functions enforce
-the production/loopback CORS allowlist and use the service role only inside the
-Edge runtime. No community-level table or RPC is directly available to
-`anon` or `authenticated`.
+`submit-level` accepts canonical version 1 level documents,
+`community-levels` returns the bounded public catalog, and `share-level` renders
+personalized pixel-art previews for publicly playable levels. Vercel serves the
+corresponding crawlable HTML metadata at canonical friendly slugs. Browser API functions
+enforce the production/loopback CORS allowlist. Supabase functions use the
+service role only inside the Edge runtime. No community-level table or mutation
+RPC is directly available to `anon` or `authenticated`; the bounded
+`get_community_level_share` resolver is intentionally public for Vercel.
 
 Level content is immutable. A normalized document hashes to a stable
 `cl_<24 lowercase hex characters>` id; an exact resubmission returns that id
@@ -38,6 +41,16 @@ digests and are limited to five attempts per fixed one-hour window. Catalog
 responses contain only the id, schema version, normalized names, layout,
 populated count, creation timestamp, and public status. Quarantined and removed
 levels are excluded.
+
+Friendly slugs are resolved against the full immutable table rather than the
+bounded catalog window. The oldest matching name keeps the bare slug
+permanently, hidden owners are never reassigned, and later collisions receive
+their full public id as a suffix.
+
+`community_levels_share_slug_idx` is an expression index over
+`private.community_level_slug(level_name)`. Any migration that changes that
+immutable slug function must rebuild or reindex `community_levels_share_slug_idx`
+in the same transaction.
 
 ### Moderation RPC
 
@@ -71,9 +84,11 @@ From the repository root:
 
 ```sh
 deno fmt --check supabase/functions/_shared \
-  supabase/functions/submit-level supabase/functions/community-levels
+  supabase/functions/submit-level supabase/functions/community-levels \
+  supabase/functions/share-level
 deno check supabase/functions/submit-level/index.ts \
-  supabase/functions/community-levels/index.ts
+  supabase/functions/community-levels/index.ts \
+  supabase/functions/share-level/index.ts
 deno test supabase/functions
 
 supabase start
@@ -87,6 +102,7 @@ Serve the public functions locally:
 ```sh
 supabase functions serve submit-level --no-verify-jwt
 supabase functions serve community-levels --no-verify-jwt
+supabase functions serve share-level --no-verify-jwt
 ```
 
 ## Deployment
@@ -98,6 +114,7 @@ part of local validation:
 supabase db push
 supabase functions deploy submit-level --no-verify-jwt
 supabase functions deploy community-levels --no-verify-jwt
+supabase functions deploy share-level --no-verify-jwt
 ```
 
 Supabase supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to hosted Edge

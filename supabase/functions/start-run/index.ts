@@ -1,20 +1,18 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const ALLOWED_WEB_ORIGINS = new Set([
-  "https://adrianmg.github.io",
+  "https://tinynoid.vercel.app",
 ]);
 const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const encoder = new TextEncoder();
 
-
 function isAllowedOrigin(origin: string | null): boolean {
   return (
-    origin === null
-    || ALLOWED_WEB_ORIGINS.has(origin)
-    || LOCAL_ORIGIN.test(origin)
+    origin === null ||
+    ALLOWED_WEB_ORIGINS.has(origin) ||
+    LOCAL_ORIGIN.test(origin)
   );
 }
-
 
 function headers(origin: string | null): HeadersInit {
   return {
@@ -27,7 +25,6 @@ function headers(origin: string | null): HeadersInit {
   };
 }
 
-
 function json(
   body: Record<string, unknown>,
   status: number,
@@ -39,7 +36,6 @@ function json(
   });
 }
 
-
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -49,7 +45,6 @@ async function sha256(value: string): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
-
 
 async function digestNetworkKey(
   networkAddress: string,
@@ -72,7 +67,6 @@ async function digestNetworkKey(
     .join("");
 }
 
-
 async function createToken(runId: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -90,7 +84,6 @@ async function createToken(runId: string, secret: string): Promise<string> {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
-
 
 Deno.serve(async (request: Request): Promise<Response> => {
   const origin = request.headers.get("origin");
@@ -125,9 +118,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const forwardedFor = request.headers.get("x-forwarded-for")
     ?.split(",")[0]
     ?.trim();
-  const networkAddress = request.headers.get("cf-connecting-ip")
-    ?? forwardedFor
-    ?? "unknown";
+  const networkAddress = request.headers.get("cf-connecting-ip") ??
+    forwardedFor ??
+    "unknown";
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
@@ -144,8 +137,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
   });
   if (error || !data?.length) {
     if (
-      error?.code === "P0001"
-      && error.message === "run_ticket_rate_limit_exceeded"
+      error?.code === "P0001" &&
+      error.message === "run_ticket_rate_limit_exceeded"
     ) {
       return json(
         { error: "Too many new runs. Try again later." },
@@ -164,9 +157,13 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json({ error: "Run could not be registered." }, 500, origin);
   }
 
-  return json({
-    run_id: payload.run_id,
-    run_token: token,
-    expires_at: data[0].expires_at,
-  }, 201, origin);
+  return json(
+    {
+      run_id: payload.run_id,
+      run_token: token,
+      expires_at: data[0].expires_at,
+    },
+    201,
+    origin,
+  );
 });

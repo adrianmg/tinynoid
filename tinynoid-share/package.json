@@ -1,0 +1,9 @@
+{
+  "name": "tinynoid-share",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bash ./build.sh",
+    "test": "node --test ../web/tests/community-share-page.test.mjs"
+  }
+}

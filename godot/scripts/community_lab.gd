@@ -16,6 +16,8 @@ const ROW_TOP := 61
 const ROW_HEIGHT := 22
 const VISIBLE_ROWS := 6
 const BACK_RECT := Rect2(75, 211, 106, 14)
+const PREVIEW_X := 199
+const PREVIEW_SIZE := Vector2(29, 14)
 
 var _state: StringName = CommunityCatalog.STATE_LOADING
 var _entries: Array[Dictionary] = []
@@ -149,11 +151,13 @@ func _draw_entries() -> void:
 		var entry: Dictionary = _entries[entry_index]
 		var title := "%s — BY %s" % [
 			String(entry.level_name),
-			String(entry.creator_display_name),
+			CommunityCatalogClient.format_creator_name(
+				String(entry.creator_display_name)
+			),
 		]
 		PixelFont.draw_text(
 			self,
-			_fit_text(title, 194),
+			_fit_text(title, 164),
 			Vector2(31, row_rect.position.y + 3),
 			YELLOW if entry_index == _selected_index else WHITE
 		)
@@ -168,6 +172,41 @@ func _draw_entries() -> void:
 			Vector2(31, row_rect.position.y + 11),
 			MAGENTA if String(entry.status) == "pending" else CYAN
 		)
+		_draw_level_preview(
+			entry,
+			Vector2(PREVIEW_X, row_rect.position.y + 3),
+			entry_index == _selected_index
+		)
+
+
+func _draw_level_preview(
+	entry: Dictionary,
+	position: Vector2,
+	selected: bool
+) -> void:
+	var preview_rect := Rect2(position, PREVIEW_SIZE)
+	draw_rect(preview_rect, VOID)
+	draw_rect(
+		preview_rect,
+		YELLOW if selected else BLUE,
+		false,
+		1.0
+	)
+	var layout: Array = entry.get("layout", [])
+	var grid_origin := position + Vector2(1, 2)
+	for row_index in range(mini(layout.size(), 10)):
+		var row := String(layout[row_index])
+		for column_index in range(mini(row.length(), 13)):
+			var code := row.substr(column_index, 1)
+			if code == ".":
+				continue
+			draw_rect(
+				Rect2(
+					grid_origin + Vector2(column_index * 2, row_index),
+					Vector2(2, 1)
+				),
+				BrickRules.get_color(code)
+			)
 
 
 func _select_relative(direction: int) -> void:

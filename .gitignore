@@ -33,3 +33,10 @@ sysinfo.txt
 /godot/.godot/
 /godot/build/
 /.ci/
+**/.vercel/
+/tinynoid-share/public/
+.env*.local
+/.impeccable/hook.cache.json
+/.deploy-verify/
+**/node_modules/
+.DS_Store

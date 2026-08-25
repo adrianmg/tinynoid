@@ -11,9 +11,10 @@ export const LEVEL_SCHEMA = Object.freeze({
   creatorName: Object.freeze({ min: 2, max: 24 }),
 });
 
+export const GAME_URL = "https://tinynoid.vercel.app/";
+
 const NAME_PATTERN = /^[A-Z0-9 @._-]+$/;
 const ID_PATTERN = /^cl_[0-9a-f]{24}$/;
-
 export function normalizeName(value) {
   return String(value ?? "").trim().replace(/\s+/g, " ").toUpperCase();
 }
@@ -152,7 +153,8 @@ export function validateLevel(input) {
         [...row].some((code) => !LEVEL_SCHEMA.codes.includes(code)),
     );
     if (invalidRow !== undefined) {
-      errors.layout = `Every row must contain ${LEVEL_SCHEMA.columns} supported cells.`;
+      errors.layout =
+        `Every row must contain ${LEVEL_SCHEMA.columns} supported cells.`;
     }
   }
 
@@ -160,7 +162,8 @@ export function validateLevel(input) {
   if (!errors.layout) {
     counts = countLayout(layout);
     if (counts.destructible < LEVEL_SCHEMA.minDestructible) {
-      errors.layout = `Add at least ${LEVEL_SCHEMA.minDestructible} breakable bricks.`;
+      errors.layout =
+        `Add at least ${LEVEL_SCHEMA.minDestructible} breakable bricks.`;
     } else if (counts.populated > LEVEL_SCHEMA.maxPopulated) {
       errors.layout = `Use no more than ${LEVEL_SCHEMA.maxPopulated} bricks.`;
     }
@@ -172,7 +175,8 @@ export function validateLevel(input) {
     creator_display_name: creatorName,
     layout: [...layout],
   };
-  const payloadBytes = new TextEncoder().encode(JSON.stringify(normalized)).length;
+  const payloadBytes =
+    new TextEncoder().encode(JSON.stringify(normalized)).length;
   if (payloadBytes > LEVEL_SCHEMA.maxPayloadBytes && !errors.layout) {
     errors.layout = `Submission exceeds ${LEVEL_SCHEMA.maxPayloadBytes} bytes.`;
   }
@@ -205,4 +209,21 @@ export async function contentHash(level) {
 
 export function isCommunityLevelId(value) {
   return ID_PATTERN.test(String(value ?? ""));
+}
+
+export function communityLevelUrl(levelId, gameUrl = GAME_URL) {
+  if (!isCommunityLevelId(levelId)) return "";
+  const url = new URL(gameUrl);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("community", levelId);
+  return url.href;
+}
+
+export function communityLevelFallbackUrl(
+  levelId,
+  shareUrl = GAME_URL,
+) {
+  if (!isCommunityLevelId(levelId)) return "";
+  return new URL(`level/${levelId}`, shareUrl).href;
 }

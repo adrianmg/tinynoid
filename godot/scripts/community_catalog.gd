@@ -285,6 +285,13 @@ static func is_playable_status(status: String) -> bool:
 	return status == "pending" or status == "listed"
 
 
+static func format_creator_name(value: String) -> String:
+	var normalized := value.strip_edges().to_upper()
+	if normalized.is_empty():
+		return "UNKNOWN"
+	return normalized if normalized.begins_with("@") else "@%s" % normalized
+
+
 static func deep_link_id(query_string: String) -> String:
 	var query := query_string.trim_prefix("?")
 	for pair in query.split("&"):

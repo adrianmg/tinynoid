@@ -36,7 +36,6 @@ func configure_result(
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	AvatarCache.avatar_updated.connect(_on_avatar_updated)
 	if share_enabled:
 		Leaderboard.score_submitted.connect(_on_score_submitted)
 		Leaderboard.submission_failed.connect(_on_submission_failed)
@@ -134,31 +133,19 @@ func _activate_selected() -> void:
 		_selected_index = 0
 		queue_redraw()
 	elif action == "SHARE ON TWITTER":
-		var twitter_opened := ScoreShare.share_on_twitter(
-			PlayerProfile.get_display_name(),
-			GameSession.score,
-			share_outcome
-		)
-		_share_status = (
-			"TWITTER OPENED"
-			if twitter_opened
-			else "TWITTER UNAVAILABLE"
-		)
-		queue_redraw()
-	elif action == "SHARE":
 		if _share_png.is_empty():
 			_share_status = "PREPARING SCORE CARD"
 			queue_redraw()
+			call_deferred("_prepare_share_image")
 			return
-		var shared := ScoreShare.share(
-			PlayerProfile.get_display_name(),
+		var twitter_opened := ScoreShare.share_on_twitter(
 			GameSession.score,
 			share_outcome,
 			_share_png
 		)
 		_share_status = (
 			"SHARE OPENED"
-			if shared
+			if twitter_opened
 			else "SHARE UNAVAILABLE"
 		)
 		queue_redraw()
@@ -205,11 +192,6 @@ func _on_submission_failed(run_id: String, _message: String) -> void:
 	call_deferred("_prepare_share_image")
 
 
-func _on_avatar_updated(_handle: String) -> void:
-	queue_redraw()
-	call_deferred("_prepare_share_image")
-
-
 func _get_option_rect(option_index: int) -> Rect2:
 	return Rect2(52, OPTION_Y[option_index] - 3, 152, 11)
 
@@ -237,7 +219,6 @@ func _get_option_labels() -> Array[String]:
 	if Leaderboard.has_save_failure(GameSession.run_id):
 		labels.append("RETRY SAVE")
 	labels.append("SHARE ON TWITTER")
-	labels.append("SHARE")
 	return labels
 
 
