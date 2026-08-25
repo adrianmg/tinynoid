@@ -53,15 +53,21 @@ jobs:
           deno fmt --check \
             supabase/functions/_shared \
             supabase/functions/community-levels \
+            supabase/functions/daily-challenge \
             supabase/functions/share-level \
             supabase/functions/start-run \
+            supabase/functions/start-daily-run \
             supabase/functions/submit-level \
+            supabase/functions/submit-daily-score \
             supabase/functions/submit-score
           deno check \
             supabase/functions/community-levels/index.ts \
+            supabase/functions/daily-challenge/index.ts \
             supabase/functions/share-level/index.ts \
             supabase/functions/start-run/index.ts \
+            supabase/functions/start-daily-run/index.ts \
             supabase/functions/submit-level/index.ts \
+            supabase/functions/submit-daily-score/index.ts \
             supabase/functions/submit-score/index.ts
           deno test supabase/functions/_shared/*_test.ts
 

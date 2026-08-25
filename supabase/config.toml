@@ -17,3 +17,12 @@ verify_jwt = false
 
 [functions.share-level]
 verify_jwt = false
+
+[functions.daily-challenge]
+verify_jwt = false
+
+[functions.start-daily-run]
+verify_jwt = false
+
+[functions.submit-daily-score]
+verify_jwt = false

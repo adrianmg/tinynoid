@@ -6,6 +6,9 @@ const GAME_OVER_SCENE: PackedScene = preload("res://scenes/game_over.tscn")
 const STAGE_CLEAR_SCENE: PackedScene = preload("res://scenes/stage_clear.tscn")
 const NAME_ENTRY_SCENE: PackedScene = preload("res://scenes/name_entry.tscn")
 const HIGH_SCORES_SCENE: PackedScene = preload("res://scenes/high_scores.tscn")
+const DAILY_CHALLENGE_SCENE: PackedScene = preload(
+	"res://scenes/daily_challenge.tscn"
+)
 const COMMUNITY_LAB_SCENE: PackedScene = preload(
 	"res://scenes/community_lab.tscn"
 )
@@ -22,8 +25,10 @@ var _featured_request_level: Dictionary = {}
 func _ready() -> void:
 	GameSession.new_game()
 	CommunityCatalog.level_checked.connect(_on_level_checked)
+	DailyChallenge.run_ready.connect(_on_daily_run_ready)
 	_show_main_menu()
-	_try_community_deep_link()
+	if not _try_daily_deep_link():
+		_try_community_deep_link()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -34,6 +39,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		and not _current_screen is NameEntryScreen
 		and not _current_screen is HighScoresScreen
 		and not _current_screen is CommunityLab
+		and not _current_screen is DailyChallengeScreen
 	):
 		get_viewport().set_input_as_handled()
 		_show_contextual_main_menu()
@@ -51,6 +57,7 @@ func _show_main_menu(
 		main_menu.show_notice(notice)
 	_replace_screen(main_menu)
 	main_menu.start_requested.connect(_start_new_game)
+	main_menu.daily_requested.connect(_show_daily_challenge)
 	main_menu.community_level_requested.connect(_request_featured_community_game)
 	main_menu.community_lab_requested.connect(_show_community_lab)
 	main_menu.high_scores_requested.connect(_show_high_scores)
@@ -59,7 +66,9 @@ func _show_main_menu(
 
 
 func _show_contextual_main_menu() -> void:
-	if GameSession.is_community_run():
+	if GameSession.is_daily_run():
+		_show_daily_challenge()
+	elif GameSession.is_community_run():
 		_show_main_menu(GameSession.community_level)
 	else:
 		_show_main_menu()
@@ -85,6 +94,31 @@ func _show_community_lab(notice: String = "") -> void:
 	if not notice.is_empty():
 		community_lab.show_notice(notice)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _show_daily_challenge(daily_id: String = "") -> void:
+	MusicController.play_menu()
+	var daily: DailyChallengeScreen = DAILY_CHALLENGE_SCENE.instantiate()
+	daily.configure_daily_id(daily_id)
+	_replace_screen(daily)
+	daily.play_requested.connect(_start_daily_challenge)
+	daily.back_requested.connect(_leave_daily_challenge)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _start_daily_challenge() -> void:
+	DailyChallenge.start()
+
+
+func _leave_daily_challenge() -> void:
+	DailyChallenge.cancel_start()
+	_show_main_menu()
+
+
+func _on_daily_run_ready() -> void:
+	if not _current_screen is DailyChallengeScreen:
+		return
+	_show_gameplay()
 
 
 func _open_level_editor() -> void:
@@ -129,6 +163,9 @@ func _present_game_over() -> void:
 
 
 func _show_stage_clear() -> void:
+	if GameSession.is_daily_run():
+		_finish_run("daily_clear")
+		return
 	if GameSession.is_community_run():
 		_present_stage_clear()
 		return
@@ -152,6 +189,11 @@ func _start_new_game(start_level: int = 1) -> void:
 
 
 func _restart_current_stage() -> void:
+	if GameSession.is_daily_run():
+		_show_daily_challenge(
+			String(GameSession.daily_cartridge.get("daily_id", ""))
+		)
+		return
 	if GameSession.is_community_run():
 		_retry_community_level()
 		return
@@ -186,6 +228,11 @@ func _fail_community_retry(message: String) -> void:
 
 
 func _continue_campaign() -> void:
+	if GameSession.is_daily_run():
+		_show_daily_challenge(
+			String(GameSession.daily_cartridge.get("daily_id", ""))
+		)
+		return
 	if GameSession.is_community_run():
 		_show_contextual_main_menu()
 		return
@@ -204,13 +251,13 @@ func _finish_run(outcome: String) -> void:
 		return
 
 	if not PlayerProfile.has_player_name():
-		_record_terminal_score(run_result, "GUEST")
+		_record_run_score(run_result, "GUEST")
 		_pending_submission = run_result
 		_pending_terminal = outcome
 		_show_name_entry()
 		return
 
-	_record_terminal_score(
+	_record_run_score(
 		run_result,
 		PlayerProfile.get_display_name()
 	)
@@ -242,7 +289,7 @@ func _on_name_confirmed(player_name: String) -> void:
 		_show_main_menu()
 		return
 
-	var saved := _record_terminal_score(_pending_submission, player_name)
+	var saved := _record_run_score(_pending_submission, player_name)
 	var terminal := _pending_terminal
 	if saved:
 		_clear_pending_terminal()
@@ -254,7 +301,7 @@ func _on_guest_selected() -> void:
 		_show_main_menu()
 		return
 
-	var saved := _record_terminal_score(_pending_submission, "GUEST")
+	var saved := _record_run_score(_pending_submission, "GUEST")
 	var terminal := _pending_terminal
 	if saved:
 		_clear_pending_terminal()
@@ -262,7 +309,7 @@ func _on_guest_selected() -> void:
 
 
 func _present_terminal(outcome: String) -> void:
-	if outcome == "campaign_clear":
+	if outcome == "campaign_clear" or outcome == "daily_clear":
 		_present_stage_clear()
 	else:
 		_present_game_over()
@@ -284,9 +331,31 @@ func _record_terminal_score(
 	return saved
 
 
+func _record_run_score(
+	run_result: Dictionary,
+	player_name: String
+) -> bool:
+	if String(run_result.get("run_kind", "")) == "daily":
+		return DailyChallenge.record_result(run_result, player_name)
+	return _record_terminal_score(run_result, player_name)
+
+
 func _clear_pending_terminal() -> void:
 	_pending_submission = {}
 	_pending_terminal = ""
+
+
+func _try_daily_deep_link() -> bool:
+	if not OS.has_feature("web"):
+		return false
+	var query: Variant = JavaScriptBridge.eval("window.location.search", true)
+	if typeof(query) != TYPE_STRING:
+		return false
+	var daily_id := DailyChallengeState.deep_link_id(String(query))
+	if daily_id.is_empty():
+		return false
+	_show_daily_challenge(daily_id)
+	return true
 
 
 func _try_community_deep_link() -> void:

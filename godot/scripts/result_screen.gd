@@ -37,8 +37,13 @@ func configure_result(
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	if share_enabled:
-		Leaderboard.score_submitted.connect(_on_score_submitted)
-		Leaderboard.submission_failed.connect(_on_submission_failed)
+		if GameSession.is_daily_run():
+			DailyChallenge.submission_changed.connect(
+				_on_daily_submission_changed
+			)
+		else:
+			Leaderboard.score_submitted.connect(_on_score_submitted)
+			Leaderboard.submission_failed.connect(_on_submission_failed)
 		_update_score_status()
 	queue_redraw()
 	call_deferred("_prepare_share_image")
@@ -128,7 +133,10 @@ func _activate_selected() -> void:
 	if action == primary_label:
 		_request_primary_action()
 	elif action == "RETRY SAVE":
-		Leaderboard.retry_failed_score(GameSession.run_id)
+		if GameSession.is_daily_run():
+			DailyChallenge.retry_result(GameSession.run_id)
+		else:
+			Leaderboard.retry_failed_score(GameSession.run_id)
 		_update_score_status()
 		_selected_index = 0
 		queue_redraw()
@@ -138,10 +146,14 @@ func _activate_selected() -> void:
 			queue_redraw()
 			call_deferred("_prepare_share_image")
 			return
-		var twitter_opened := ScoreShare.share_on_twitter(
-			GameSession.score,
-			share_outcome,
-			_share_png
+		var twitter_opened := (
+			_share_daily()
+			if GameSession.is_daily_run()
+			else ScoreShare.share_on_twitter(
+				GameSession.score,
+				share_outcome,
+				_share_png
+			)
 		)
 		_share_status = (
 			"SHARE OPENED"
@@ -164,6 +176,28 @@ func _prepare_share_image() -> void:
 
 
 func _update_score_status() -> void:
+	if GameSession.is_daily_run():
+		var result := DailyChallenge.get_result(GameSession.run_id)
+		match String(result.get("status", "")):
+			"submitted":
+				_score_status = (
+					(
+						"DAILY RANK #%03d"
+						if bool(result.get("personal_best", false))
+						else "DAILY BEST #%03d"
+					) % int(result.get("rank", 0))
+					if int(result.get("rank", 0)) > 0
+					else "DAILY SCORE ADDED"
+				)
+			"pending":
+				_score_status = "SENDING DAILY SCORE"
+			"failed":
+				_score_status = "DAILY SCORE RETRY"
+			"local":
+				_score_status = "DAILY SCORE LOCAL"
+			_:
+				_score_status = "DAILY SCORE SAVED"
+		return
 	if Leaderboard.has_save_failure(GameSession.run_id):
 		_score_status = "SCORE NOT SAVED - RETRY"
 	elif Leaderboard.is_score_submitted(GameSession.run_id):
@@ -216,10 +250,42 @@ func _get_option_labels() -> Array[String]:
 	var labels: Array[String] = [primary_label]
 	if not share_enabled:
 		return labels
-	if Leaderboard.has_save_failure(GameSession.run_id):
+	if (
+		GameSession.is_daily_run()
+		and String(
+			DailyChallenge.get_result(GameSession.run_id).get("status", "")
+		) == "failed"
+	) or (
+		not GameSession.is_daily_run()
+		and Leaderboard.has_save_failure(GameSession.run_id)
+	):
 		labels.append("RETRY SAVE")
 	labels.append("SHARE ON TWITTER")
 	return labels
+
+
+func _share_daily() -> bool:
+	var cartridge := GameSession.daily_cartridge
+	var result := DailyChallenge.get_result(GameSession.run_id)
+	var rank := (
+		int(result.get("rank", 0))
+		if bool(result.get("personal_best", false))
+		else 0
+	)
+	return ScoreShare.share_daily(
+		GameSession.score,
+		String(cartridge.get("daily_id", "")),
+		rank,
+		_share_png
+	)
+
+
+func _on_daily_submission_changed(run_id: String) -> void:
+	if run_id != GameSession.run_id:
+		return
+	_update_score_status()
+	queue_redraw()
+	call_deferred("_prepare_share_image")
 
 
 func _draw_identity_row(player_name: String) -> void:

@@ -2,6 +2,7 @@ class_name MainMenu
 extends Control
 
 signal start_requested(stage_number: int)
+signal daily_requested
 signal community_level_requested(level: Dictionary)
 signal community_lab_requested
 signal high_scores_requested
@@ -15,8 +16,8 @@ const CYAN := Color("#74ddff")
 const WHITE := Color("#f7f4ff")
 const YELLOW := Color("#ffd84a")
 const MAGENTA := Color("#c967e8")
-const DESKTOP_OPTION_Y := [80, 96, 112, 128, 144]
-const WEB_OPTION_Y := [84, 104, 124, 144]
+const DESKTOP_OPTION_Y := [76, 90, 104, 118, 132, 146]
+const WEB_OPTION_Y := [80, 96, 112, 128, 144]
 const RECENT_SCORE_Y := 174
 const SUBTITLE := "A TINY ARKANOID TRIBUTE BY @ADRIANMG"
 const COMMUNITY_SUBTITLE := "SHARED COMMUNITY LEVEL"
@@ -202,6 +203,7 @@ static func instruction_lines_for(is_mobile: bool) -> Array[String]:
 static func option_ids_for(is_web: bool) -> Array[StringName]:
 	var option_ids: Array[StringName] = [
 		&"play",
+		&"daily",
 		&"community_lab",
 		&"high_scores",
 	]
@@ -287,6 +289,8 @@ func _activate_selected() -> void:
 				)
 			else:
 				start_requested.emit(_selected_stage)
+		&"daily":
+			daily_requested.emit()
 		&"community_lab":
 			community_lab_requested.emit()
 		&"high_scores":
@@ -305,6 +309,8 @@ func _get_option_text(option_index: int) -> String:
 				if has_featured_community_level()
 				else "PLAY STAGE %02d" % _selected_stage
 			)
+		&"daily":
+			return "DAILY CARTRIDGE"
 		&"community_lab":
 			return "COMMUNITY LAB"
 		&"high_scores":
