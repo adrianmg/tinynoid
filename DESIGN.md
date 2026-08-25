@@ -27,6 +27,18 @@ typography:
     fontWeight: 400
     lineHeight: 1
     letterSpacing: "1px"
+  webEditorDisplay:
+    fontFamily: "Press Start 2P"
+    fontSize: "10px"
+    fontWeight: 400
+    lineHeight: 1.6
+    letterSpacing: "0px"
+  webEditorBody:
+    fontFamily: "Courier New"
+    fontSize: "12px"
+    fontWeight: 700
+    lineHeight: 1.6
+    letterSpacing: "0.055em"
 rounded:
   none: "0px"
 spacing:
@@ -113,6 +125,10 @@ discrete steps; they never dissolve through continuous alpha fades.
 
 **Character:** A tiny all-caps console alphabet drawn by code. It favors brief
 state labels, scores, and action prompts over prose.
+
+The Web level editor uses the locally bundled, OFL-licensed Press Start 2P face
+for its masthead, section headings, and buttons. Dense instructions, form
+fields, and status copy remain in a compact monospace face for readability.
 
 ### Hierarchy
 

@@ -188,6 +188,27 @@ test("ships large social cards and matching metadata", async () => {
   assert.match(editorPage, /tinynoid\.vercel\.app\/editor\/og-image\.png/);
 });
 
+test("uses local pixel typography without the duplicate masthead status", async () => {
+  const [editorPage, editorStyles, pixelFont, fontLicense] = await Promise.all([
+    readFile(new URL("../editor/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../editor/styles.css", import.meta.url), "utf8"),
+    readFile(
+      new URL("../editor/fonts/PressStart2P-Regular.ttf", import.meta.url),
+    ),
+    readFile(new URL("../editor/fonts/OFL.txt", import.meta.url), "utf8"),
+  ]);
+  assert.doesNotMatch(editorPage, /class="lab-status"/);
+  assert.match(editorPage, /Published levels are unranked and marked UNREVIEWED/);
+  assert.match(editorStyles, /font-family: "Press Start 2P"/);
+  assert.match(editorStyles, /--font-pixel: "Press Start 2P"/);
+  assert.match(
+    editorStyles,
+    /\.palette\s*\{[^}]*grid-template-columns: repeat\(6,/s,
+  );
+  assert.ok(pixelFont.length > 100_000);
+  assert.match(fontLicense, /SIL OPEN FONT LICENSE Version 1\.1/);
+});
+
 test("resolves selected, cycling, and erase paint tools", () => {
   assert.equal(resolvePaintCode("R", ".", false), "R");
   assert.equal(resolvePaintCode("cycle", "R", false), "B");
