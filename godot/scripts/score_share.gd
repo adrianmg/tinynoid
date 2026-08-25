@@ -15,6 +15,18 @@ static func share_on_twitter(
 	return OS.shell_open(_x_intent_url(text)) == OK
 
 
+static func share_daily(
+	score: int,
+	daily_id: String,
+	rank: int,
+	png_data: PackedByteArray
+) -> bool:
+	var text := _daily_share_text(score, daily_id, rank)
+	if OS.has_feature("web"):
+		return _share_on_web(text, png_data)
+	return OS.shell_open(_x_intent_url(text)) == OK
+
+
 static func _share_text(
 	score: int,
 	outcome: String
@@ -23,6 +35,21 @@ static func _share_text(
 	if outcome == "campaign_clear":
 		text = "I cleared TINYNOID with %d points!" % score
 	return "%s\n%s" % [text, GAME_URL]
+
+
+static func _daily_share_text(
+	score: int,
+	daily_id: String,
+	rank: int
+) -> String:
+	var text := "I scored %d in TINYNOID DAILY %s UTC!" % [
+		score,
+		daily_id,
+	]
+	if rank > 0:
+		text += " WORLD RANK #%d." % rank
+	var url := "%s?daily=%s" % [GAME_URL, daily_id.uri_encode()]
+	return "%s\n%s" % [text, url]
 
 
 static func _share_on_web(

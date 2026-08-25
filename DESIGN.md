@@ -234,7 +234,8 @@ when the platform supports file sharing and falls back to a prefilled X post.
 ### Main Menu
 
 A compact ink panel inside the persistent arena frame. One cyan-edged selection
-band identifies focus. Options expose Play, Community Lab, High Scores, and
+band identifies focus. Options expose Play, Daily Cartridge, Community Lab,
+High Scores, and
 Sound; desktop builds also expose Window mode while Web builds omit it. A single live line below the
 panel reports the latest globally submitted player and score. Help text names
 keyboard, touch, mouse, and controller actions while direct option taps require
@@ -257,6 +258,18 @@ the moderation label, and renders the immutable 13x10 brick layout.
 Moving focus produces a short descending pulse tick; activating an option uses
 a brighter ascending two-note chirp. Both are generated, persistent across scene
 changes, and follow the menu Sound setting.
+
+### Daily Cartridge
+
+One server-selected community cartridge is materialized for each UTC day.
+Everyone receives the same immutable layout and capsule seed. A dedicated
+cartridge screen names the level and creator, shows the daily world Top 100,
+and starts a proof-bound ranked attempt. Each handle's best attempt owns its
+daily rank; repeat attempts can improve it. Results survive network loss and
+reload, then share the UTC date and earned rank through a permanent daily link.
+Like the campaign board, anonymous daily ranking is best-effort rather than a
+cryptographic claim: tickets limit replay and enforce score ceilings, while the
+server cannot prove an unmodified client without simulating full input replays.
 
 ### Soundtrack
 

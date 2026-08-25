@@ -45,6 +45,7 @@ main scene.
 - Compatible capsule effects stack together until life loss or stage clear
 - Protected random drops reward the opening and prevent long dry streaks
 - Global Top 100 scores with offline local history
+- UTC Daily Cartridge with one shared community level and daily world ranking
 - Post-game X/Twitter handles and deterministic pixel avatars
 - Unranked Community Lab levels with creator attribution and moderation status
 - Mobile-friendly fixed-grid community level editor

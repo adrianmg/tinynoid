@@ -16,6 +16,9 @@ const HIGH_SCORES_SCENE: PackedScene = preload("res://scenes/high_scores.tscn")
 const COMMUNITY_LAB_SCENE: PackedScene = preload(
 	"res://scenes/community_lab.tscn"
 )
+const DAILY_CHALLENGE_SCENE: PackedScene = preload(
+	"res://scenes/daily_challenge.tscn"
+)
 const BRICK_BREAK_EFFECT_SCENE: PackedScene = preload(
 	"res://scenes/effects/brick_break_effect.tscn"
 )
@@ -52,6 +55,7 @@ func _run() -> void:
 	await _test_touch_controls()
 	await _test_campaign_routing()
 	await _test_game_session()
+	await _test_daily_challenge()
 	await _test_player_profile()
 	await _test_leaderboard_client()
 	await _test_level_catalog()
@@ -373,6 +377,7 @@ func _test_main_menu() -> void:
 	var start_requested := [-1]
 	var high_scores_requested := [false]
 	var community_lab_requested := [false]
+	var daily_requested := [false]
 	var quit_requested := [false]
 	menu.start_requested.connect(
 		func(stage_number: int) -> void:
@@ -384,6 +389,7 @@ func _test_main_menu() -> void:
 	menu.community_lab_requested.connect(
 		func() -> void: community_lab_requested[0] = true
 	)
+	menu.daily_requested.connect(func() -> void: daily_requested[0] = true)
 	menu.quit_requested.connect(func() -> void: quit_requested[0] = true)
 	get_tree().root.add_child(menu)
 	await get_tree().process_frame
@@ -457,8 +463,8 @@ func _test_main_menu() -> void:
 	get_tree().root.add_child(web_menu)
 	await get_tree().process_frame
 	_check(
-		web_menu.call("_option_count") == 4
-		and web_menu.call("_get_option_text", 3).begins_with("SOUND"),
+		web_menu.call("_option_count") == 5
+		and web_menu.call("_get_option_text", 4).begins_with("SOUND"),
 		"Web menus omit native window controls and keep Sound contiguous."
 	)
 	for web_option_index in range(web_menu.call("_option_count")):
@@ -508,22 +514,27 @@ func _test_main_menu() -> void:
 	down_event.pressed = true
 	var move_count := UiAudio.get_move_count()
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 1, "Menu navigation selects Community Lab.")
+	_check(menu.get_selected_index() == 1, "Menu navigation selects Daily Cartridge.")
 	_check(
 		UiAudio.get_move_count() == move_count + 1,
 		"Up/Down navigation plays the movement tick."
 	)
 
 	menu._unhandled_input(fire_event)
+	_check(daily_requested[0], "FIRE opens Daily Cartridge.")
+
+	menu._unhandled_input(down_event)
+	_check(menu.get_selected_index() == 2, "Menu navigation selects Community Lab.")
+	menu._unhandled_input(fire_event)
 	_check(community_lab_requested[0], "FIRE opens Community Lab.")
 
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 2, "Menu navigation selects High Scores.")
+	_check(menu.get_selected_index() == 3, "Menu navigation selects High Scores.")
 	menu._unhandled_input(fire_event)
 	_check(high_scores_requested[0], "FIRE opens the global leaderboard.")
 
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 3, "Menu navigation selects Window mode.")
+	_check(menu.get_selected_index() == 4, "Menu navigation selects Window mode.")
 	DisplayController.set_window_scale(2)
 	menu._unhandled_input(right_event)
 	_check(DisplayController.get_mode_label() == "3X", "Menu arrows change window mode.")
@@ -533,7 +544,7 @@ func _test_main_menu() -> void:
 	)
 
 	menu._unhandled_input(down_event)
-	_check(menu.get_selected_index() == 4, "Menu navigation selects Sound.")
+	_check(menu.get_selected_index() == 5, "Menu navigation selects Sound.")
 	menu._unhandled_input(fire_event)
 	_check(menu.get_sound_level() == 2, "FIRE lowers Sound from III to II.")
 	menu._unhandled_input(fire_event)
@@ -632,6 +643,7 @@ func _test_main_menu() -> void:
 		false
 	) as MainMenu
 	application_menu._unhandled_input(down_event)
+	application_menu._unhandled_input(down_event)
 	application_menu._unhandled_input(fire_event)
 	await get_tree().process_frame
 	_check(
@@ -655,6 +667,7 @@ func _test_main_menu() -> void:
 		true,
 		false
 	) as MainMenu
+	application_menu._unhandled_input(down_event)
 	application_menu._unhandled_input(down_event)
 	application_menu._unhandled_input(down_event)
 	application_menu._unhandled_input(fire_event)
@@ -1241,11 +1254,11 @@ func _test_touch_controls() -> void:
 
 	var tap := InputEventMouseButton.new()
 	tap.button_index = MOUSE_BUTTON_LEFT
-	tap.position = Vector2(128, 86)
+	tap.position = Vector2(128, 76)
 	tap.pressed = true
 	var secondary_click := InputEventMouseButton.new()
 	secondary_click.button_index = MOUSE_BUTTON_RIGHT
-	secondary_click.position = Vector2(128, 86)
+	secondary_click.position = Vector2(128, 76)
 	secondary_click.pressed = true
 	_check(GamePointer.is_primary_press(tap), "An emulated tap is a primary click.")
 	_check(
@@ -1532,6 +1545,142 @@ func _test_game_session() -> void:
 
 	session.queue_free()
 	await get_tree().process_frame
+
+
+func _test_daily_challenge() -> void:
+	var level := _community_level_fixture()
+	var daily_response := {
+		"daily_id": "2026-08-25",
+		"opens_at": "2026-08-25T00:00:00Z",
+		"closes_at": "2026-08-26T00:00:00Z",
+		"accept_until": "2026-08-26T06:00:00Z",
+		"server_now": "2026-08-25T12:00:00Z",
+		"run_seed": 424242.0,
+		"max_score": 5000.0,
+		"level": level,
+		"top_scores": [{
+			"rank": 1.0,
+			"player_name": "@PLAYER",
+			"score": 1234.0,
+			"outcome": "daily_clear",
+			"submitted_at": "2026-08-25T12:00:00Z",
+			"competitor_count": 1,
+		}],
+	}
+	var parsed := DailyChallengeState.parse_daily_response(daily_response)
+	_check(
+		parsed.ok
+		and parsed.cartridge.daily_id == "2026-08-25"
+		and parsed.cartridge.run_seed == 424242
+		and parsed.cartridge.playable_now,
+		"Daily Cartridge validates server UTC assignment data."
+	)
+	_check(
+		DailyChallengeState.is_valid_daily_id("2026-08-25")
+		and not DailyChallengeState.is_valid_daily_id("2026-02-31"),
+		"Daily Cartridge accepts only real ISO UTC dates."
+	)
+	_check(
+		DailyChallengeState.deep_link_id("?daily=2026-08-25")
+		== "2026-08-25",
+		"Daily share links open the matching UTC cartridge."
+	)
+
+	var daily_session := GameSessionState.new()
+	daily_session.new_daily_game(
+		parsed.cartridge,
+		"0198d71f-1ef3-4000-8000-000000000011"
+	)
+	daily_session.award(1234)
+	var daily_result := daily_session.capture_run_result("daily_clear")
+	_check(
+		daily_session.is_daily_run()
+		and daily_session.uses_custom_level()
+		and daily_session.run_seed == 424242
+		and daily_result.score == 1234
+		and daily_result.daily_id == "2026-08-25"
+		and daily_result.level_id == level.id,
+		"Daily runs preserve the assignment, seed, and terminal result."
+	)
+	daily_session.free()
+
+	var saved_daily_state: Array[Dictionary] = [{}]
+	var daily_client := DailyChallengeState.new()
+	daily_client.set_state_writer_for_tests(
+		func(state: Dictionary) -> bool:
+			saved_daily_state[0] = state.duplicate(true)
+			return true
+	)
+	daily_client.set("_cartridge", parsed.cartridge)
+	daily_client.set("_run_tokens", {
+		daily_result.run_id: "a".repeat(64),
+	})
+	daily_client.set("_submit_in_flight", true)
+	_check(
+		daily_client.record_result(daily_result, "@PLAYER"),
+		"Daily results enter the durable submission queue."
+	)
+	_check(
+		String(daily_client.get_result(daily_result.run_id).status)
+		== "pending"
+		and (
+			saved_daily_state[0].get("pending_submissions", [])
+			as Array
+		).size() == 1,
+		"Pending daily scores are visible and persisted."
+	)
+	daily_client.free()
+
+	_check(
+		ScoreShare._daily_share_text(
+			1234,
+			"2026-08-25",
+			7
+		) == (
+			"I scored 1234 in TINYNOID DAILY 2026-08-25 UTC! "
+			+ "WORLD RANK #7.\n"
+			+ "https://tinynoid.vercel.app/?daily=2026-08-25"
+		),
+		"Daily score sharing includes UTC identity, world rank, and deep link."
+	)
+
+	var main := MAIN_SCENE.instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	main.call("_show_daily_challenge", "2026-08-25")
+	await get_tree().process_frame
+	_check(
+		main.find_child("DailyChallenge", true, false) != null,
+		"Main navigation opens the Daily Cartridge screen."
+	)
+	var daily_screen := DAILY_CHALLENGE_SCENE.instantiate()
+	var daily_scores: Array[Dictionary] = []
+	for rank in range(1, 11):
+		daily_scores.append({
+			"rank": rank,
+			"player_name": "@PLAYER%d" % rank,
+			"score": 1000 - rank,
+		})
+	daily_screen.set("_view", {"top_scores": daily_scores})
+	daily_screen.call("_scroll_scores", 7)
+	_check(
+		int(daily_screen.get("_scroll_offset")) == 3,
+		"Daily Top 100 scrolls through entries beyond the first page."
+	)
+	daily_screen.free()
+	GameSession.new_daily_game(
+		parsed.cartridge,
+		"0198d71f-1ef3-4000-8000-000000000012"
+	)
+	main.call("_present_terminal", "daily_clear")
+	await get_tree().process_frame
+	_check(
+		main.find_child("StageClear", true, false) != null,
+		"Daily clears use the Daily Clear result screen."
+	)
+	main.queue_free()
+	await get_tree().process_frame
+	GameSession.new_game()
 
 
 func _test_leaderboard_client() -> void:

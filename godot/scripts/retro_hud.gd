@@ -31,14 +31,14 @@ func _draw() -> void:
 	PixelFont.draw_text(self, "%06d" % _score, Vector2(8, 11), YELLOW)
 
 	PixelFont.draw_text(self, "STAGE", Vector2(108, 3), WHITE)
-	if GameSession.is_community_run():
+	if GameSession.uses_custom_level():
 		_draw_community_stage()
 	else:
 		PixelFont.draw_text(self, "%02d" % _stage, Vector2(116, 11), CYAN)
 
 	PixelFont.draw_text(self, "BALL", Vector2(196, 3), WHITE)
 	PixelFont.draw_text(self, "%02d" % _balls, Vector2(204, 11), YELLOW)
-	if PlayerProfile.has_player_name() and not GameSession.is_community_run():
+	if PlayerProfile.has_player_name() and not GameSession.uses_custom_level():
 		PixelAvatar.draw(
 			self,
 			PlayerProfile.player_name,
@@ -64,7 +64,7 @@ func _process(delta: float) -> void:
 
 
 func _draw_community_stage() -> void:
-	var community := GameSession.community_level
+	var community := _custom_level()
 	PixelFont.draw_centered(
 		self,
 		get_stage_value_text(),
@@ -89,24 +89,32 @@ func _draw_community_stage() -> void:
 
 
 func get_stage_value_text() -> String:
-	if not GameSession.is_community_run():
+	if not GameSession.uses_custom_level():
 		return "%02d" % _stage
 	return _fit_text(
-		String(GameSession.community_level.get("level_name", "LEVEL")),
+		String(_custom_level().get("level_name", "LEVEL")),
 		STAGE_COLUMN_WIDTH
 	)
 
 
 func get_community_author_text() -> String:
-	if not GameSession.is_community_run():
+	if not GameSession.uses_custom_level():
 		return ""
 	return CommunityCatalogClient.format_creator_name(
 		String(
-			GameSession.community_level.get(
+			_custom_level().get(
 				"creator_display_name",
 				"UNKNOWN"
 			)
 		)
+	)
+
+
+func _custom_level() -> Dictionary:
+	return (
+		GameSession.daily_cartridge.get("level", {})
+		if GameSession.is_daily_run()
+		else GameSession.community_level
 	)
 
 
