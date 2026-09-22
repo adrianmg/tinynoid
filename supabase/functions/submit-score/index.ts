@@ -1,20 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isAllowedOrigin } from "../_shared/http.ts";
 
-const ALLOWED_WEB_ORIGINS = new Set([
-  "https://tinynoid.vercel.app",
-]);
-const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const encoder = new TextEncoder();
 
 type JsonRecord = Record<string, unknown>;
-
-function isAllowedOrigin(origin: string | null): boolean {
-  return (
-    origin === null ||
-    ALLOWED_WEB_ORIGINS.has(origin) ||
-    LOCAL_ORIGIN.test(origin)
-  );
-}
 
 function responseHeaders(origin: string | null): HeadersInit {
   return {

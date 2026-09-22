@@ -97,18 +97,22 @@ const engine = new Engine($GODOT_CONFIG);
 const status = document.getElementById("status");
 const progress = document.getElementById("status-progress");
 const notice = document.getElementById("status-notice");
+// Wavedash injects its SDK before page scripts run; other hosts leave this unset.
+const wavedash = window.Wavedash;
 
 engine.startGame({
 	onProgress(current, total) {
 		if (current > 0 && total > 0) {
 			progress.value = current;
 			progress.max = total;
+			wavedash?.updateLoadProgressZeroToOne(Math.min(current / total, 1));
 		} else {
 			progress.removeAttribute("value");
 		}
 	},
 }).then(() => {
 	status.remove();
+	wavedash?.init();
 }, (error) => {
 	console.error(error);
 	progress.style.display = "none";
@@ -116,6 +120,13 @@ engine.startGame({
 	notice.textContent = error instanceof Error
 		? error.message
 		: "TINYNOID could not start.";
+	if (wavedash) {
+		// Wavedash hides the page until init(), so hand boot failures to its loader.
+		const failure = new Error(notice.textContent);
+		failure.name = "WavedashLoadFailedError";
+		failure.cause = error;
+		throw failure;
+	}
 });
 		</script>
 	</body>

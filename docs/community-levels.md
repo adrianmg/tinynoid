@@ -129,7 +129,8 @@ python3 -m http.server 4173 --directory web
 
 Open <http://127.0.0.1:4173/editor/>. Localhost and `127.0.0.1` origins are
 accepted by the Edge Functions; production CORS is restricted to
-`https://tinynoid.vercel.app`.
+`https://tinynoid.vercel.app` and Wavedash game builds on
+`*.builds.wavedashcdn.com`.
 
 Run focused tests:
 

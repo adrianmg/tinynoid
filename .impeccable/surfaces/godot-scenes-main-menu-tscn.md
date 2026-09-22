@@ -21,7 +21,8 @@ few seconds using touch, mouse, keyboard, or controller.
   Web builds omit it.
 - Left/Right changes the selected starting stage from 1 through 33.
 - F2 selects 2x, F3 selects 3x, and F11 or Alt+Enter toggles fullscreen.
-- Escape returns here from gameplay and quits when this menu is already active.
+- Escape returns here from gameplay. Desktop builds quit when this menu is
+  already active; Web builds stay running because quitting halts the engine.
 - Copy names logical actions rather than privileging a single device.
 - The 256x240 pixel grid and opaque fixed palette remain normative.
 - Focus movement and option activation use distinct generated chiptune sounds.
@@ -33,8 +34,9 @@ few seconds using touch, mouse, keyboard, or controller.
   with clear loading, empty, and offline states.
 - Verified community deep links adapt the subtitle, preselect `PLAY SHARED LEVEL`,
   and identify the level and creator before gameplay begins.
-- Desktop instructions cover arrow keys, Enter/Space, and Escape. On phones and
-  tablets they switch to tap, drag, launch/fire, and swipe guidance.
+- Desktop instructions cover arrow keys, Enter/Space, and Escape: quit on
+  native builds, back on the Web. On phones and tablets they switch to tap,
+  drag, launch/fire, and swipe guidance.
 
 ## Chosen direction and memorable moment
 

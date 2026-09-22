@@ -26,6 +26,11 @@ const DESKTOP_INSTRUCTION_LINES: Array[String] = [
 	"Enter / Space to select",
 	"ESC to quit",
 ]
+const WEB_INSTRUCTION_LINES: Array[String] = [
+	"Arrow keys to move & select",
+	"Enter / Space to select",
+	"ESC to go back",
+]
 const MOBILE_INSTRUCTION_LINES: Array[String] = [
 	"Tap and drag to move",
 	"Tap to select / launch / fire",
@@ -118,7 +123,8 @@ func _draw() -> void:
 		_get_recent_score_color()
 	)
 	var instruction_lines := instruction_lines_for(
-		GamePointer.is_mobile_device()
+		GamePointer.is_mobile_device(),
+		_web_mode
 	)
 	PixelFont.draw_centered(self, instruction_lines[0], 190, CYAN)
 	PixelFont.draw_centered(self, instruction_lines[1], 202, WHITE)
@@ -129,7 +135,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	var viewport := get_viewport()
 
 	if event.is_action_pressed("ui_cancel"):
-		quit_requested.emit()
+		# Quitting a web export halts the engine and leaves a frozen page.
+		if not _web_mode:
+			quit_requested.emit()
 	elif event.is_action_pressed("ui_up"):
 		_select_relative(-1)
 		UiAudio.play_move()
@@ -192,12 +200,13 @@ func get_featured_community_level() -> Dictionary:
 	return _featured_community_level.duplicate(true)
 
 
-static func instruction_lines_for(is_mobile: bool) -> Array[String]:
-	return (
-		MOBILE_INSTRUCTION_LINES
-		if is_mobile
-		else DESKTOP_INSTRUCTION_LINES
-	)
+static func instruction_lines_for(
+	is_mobile: bool,
+	is_web: bool = false
+) -> Array[String]:
+	if is_mobile:
+		return MOBILE_INSTRUCTION_LINES
+	return WEB_INSTRUCTION_LINES if is_web else DESKTOP_INSTRUCTION_LINES
 
 
 static func option_ids_for(is_web: bool) -> Array[StringName]:
