@@ -100,9 +100,10 @@ when Wavedash injects its SDK, so other hosts are unaffected. Keep
 `wavedash.toml` engine-less: a `[godot]` section makes Wavedash boot its
 default loader instead of this shell.
 
-1. Create the game in the [Developer Portal](https://wavedash.com/dev-portal)
-   and set its ID as `game_id` in `wavedash.toml`. Don't run `wavedash init`
-   at the repository root, because it detects the legacy Unity project.
+1. `wavedash.toml` targets the `adrianmg/tinynoid` game in the
+   [Developer Portal](https://wavedash.com/dev-portal/adrianmg/tinynoid). Don't
+   run `wavedash init` at the repository root, because it detects the legacy
+   Unity project.
 2. Export only the game to `godot/build/wavedash/`:
 
    ```sh

@@ -1,8 +1,8 @@
 # Wavedash CLI config: https://docs.wavedash.com/cli/configuration
 #
-# Add the game ID from the Wavedash Developer Portal, or export WAVEDASH_GAME_ID.
+# Override the game with WAVEDASH_GAME_ID, e.g. to push to a test game.
 # Do not run `wavedash init` here: it detects the legacy Unity project.
-# game_id = ""
+game_id = "j97dmqr8w6hczk0xdzdtfxjgms8ewxz7"
 
 # Build this folder with .github/scripts/build-wavedash.sh.
 upload_dir = "./godot/build/wavedash"
