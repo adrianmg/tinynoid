@@ -58,6 +58,7 @@ func _run() -> void:
 	await _test_daily_challenge()
 	await _test_player_profile()
 	await _test_leaderboard_client()
+	await _test_wavedash_platform()
 	await _test_level_catalog()
 	await _test_capsule_drop_director()
 	await _test_dynamic_power_up_flow()
@@ -98,6 +99,53 @@ func _finish(suite_name: String) -> void:
 	MusicController.shutdown()
 	await get_tree().process_frame
 	get_tree().quit(_failures)
+
+
+func _test_wavedash_platform() -> void:
+	var campaign := {
+		"run_id": "wavedash-run",
+		"score": 1250,
+		"outcome": "game_over",
+		"completed_stage": 7,
+		"start_stage": 1,
+		"run_kind": "campaign",
+		"eligible": true,
+	}
+	_check(
+		WavedashPlatform.is_eligible_score(campaign),
+		"Stage 1 campaign scores qualify for the Wavedash leaderboard."
+	)
+	var later_start := campaign.duplicate()
+	later_start["start_stage"] = 5
+	later_start["eligible"] = false
+	_check(
+		not WavedashPlatform.is_eligible_score(later_start),
+		"Later-stage starts stay off the Wavedash leaderboard."
+	)
+	var daily := campaign.duplicate()
+	daily["run_kind"] = "daily"
+	_check(
+		not WavedashPlatform.is_eligible_score(daily),
+		"Daily Cartridge scores stay off the Wavedash leaderboard."
+	)
+	var empty := campaign.duplicate()
+	empty["score"] = 0
+	_check(
+		not WavedashPlatform.is_eligible_score(empty),
+		"Zero scores are not posted to Wavedash."
+	)
+	var upload_script := WavedashPlatform.score_upload_script(campaign)
+	_check(
+		upload_script.contains('getLeaderboard("leaderboard")')
+		and upload_script.contains(
+			"board.data.id, 1250, true, undefined, { stage: 7 }"
+		),
+		"Wavedash uploads keep each player's best portal leaderboard score."
+	)
+	_check(
+		not WavedashPlatform.submit_campaign_score(campaign),
+		"Wavedash score uploads are inert outside Wavedash web builds."
+	)
 
 
 func _test_generated_music() -> void:

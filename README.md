@@ -98,7 +98,9 @@ The same Godot Web export can be published on [Wavedash](https://wavedash.com/).
 `godot/web_shell.html` reports load progress and calls `Wavedash.init()` only
 when Wavedash injects its SDK, so other hosts are unaffected. Keep
 `wavedash.toml` engine-less: a `[godot]` section makes Wavedash boot its
-default loader instead of this shell.
+default loader instead of this shell. On Wavedash, Stage 1 campaign scores are
+also posted to the portal leaderboard keyed `leaderboard` (higher is better);
+the in-game Top 100 still comes from Supabase.
 
 1. `wavedash.toml` targets the `adrianmg/tinynoid` game in the
    [Developer Portal](https://wavedash.com/dev-portal/adrianmg/tinynoid). Don't
