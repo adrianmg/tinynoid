@@ -126,10 +126,11 @@ origin. The Supabase game functions accept those origins once deployed; see
 scoped to that origin, so the saved X handle and local score history start
 fresh with each new Wavedash build; global scores are unaffected.
 
-Title-only store cover art lives in [`docs/wavedash/`](docs/wavedash/). It is
-drawn by [`web/social/cover.html`](web/social/cover.html): serve `web/social/`
-and open `cover.html?format=wide` (1920×1080) or `?format=square`
-(1080×1080). The canvas is the final image.
+Store cover art and gameplay screenshots live in
+[`docs/wavedash/`](docs/wavedash/). The title-only covers are drawn by
+[`web/social/cover.html`](web/social/cover.html): serve `web/social/` and open
+`cover.html?format=wide` (1920×1080) or `?format=square` (1080×1080). The
+canvas is the final image.
 
 The legacy Unity project remains in the repository as migration history. The
 Godot game uses original layouts and generated presentation assets.
