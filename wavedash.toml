@@ -1,0 +1,12 @@
+# Wavedash CLI config: https://docs.wavedash.com/cli/configuration
+#
+# Override the game with WAVEDASH_GAME_ID, e.g. to push to a test game.
+# Do not run `wavedash init` here: it detects the legacy Unity project.
+game_id = "j97dmqr8w6hczk0xdzdtfxjgms8ewxz7"
+
+# Build this folder with .github/scripts/build-wavedash.sh.
+upload_dir = "./godot/build/wavedash"
+
+# Keep this engine-less. A [godot] section boots Wavedash's default loader and
+# skips godot/web_shell.html, which reports progress and calls Wavedash.init().
+entrypoint = "index.html"

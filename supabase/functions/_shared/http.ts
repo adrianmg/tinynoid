@@ -2,6 +2,10 @@ const ALLOWED_WEB_ORIGINS = new Set([
   "https://tinynoid.vercel.app",
 ]);
 const LOCAL_ORIGIN = /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
+// Wavedash serves every player and build from its own sandboxed subdomain:
+// <game cloud id>-<player hash>-<build hash>.builds.wavedashcdn.com.
+const WAVEDASH_BUILD_ORIGIN =
+  /^https:\/\/[a-z0-9]+-[0-9a-f]{8}-[0-9a-f]{8}\.builds\.wavedashcdn\.com$/;
 
 export interface ErrorBody {
   error: {
@@ -13,7 +17,8 @@ export interface ErrorBody {
 export function isAllowedOrigin(origin: string | null): boolean {
   return origin === null ||
     ALLOWED_WEB_ORIGINS.has(origin) ||
-    (origin !== null && LOCAL_ORIGIN.test(origin));
+    (origin !== null &&
+      (LOCAL_ORIGIN.test(origin) || WAVEDASH_BUILD_ORIGIN.test(origin)));
 }
 
 export function corsHeaders(

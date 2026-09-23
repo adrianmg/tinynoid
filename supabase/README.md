@@ -28,8 +28,9 @@ delete from public.scores where run_id = '<run UUID>';
 `submit-level` accepts canonical version 1 level documents,
 `community-levels` returns the bounded public catalog, and `share-level` renders
 personalized pixel-art previews for publicly playable levels. Vercel serves the
-corresponding crawlable HTML metadata at canonical friendly slugs. Browser API functions
-enforce the production/loopback CORS allowlist. Supabase functions use the
+corresponding crawlable HTML metadata at canonical friendly slugs. Browser API
+functions enforce the production, Wavedash build, and loopback CORS allowlist in
+`functions/_shared/http.ts`. Supabase functions use the
 service role only inside the Edge runtime. No community-level table or mutation
 RPC is directly available to `anon` or `authenticated`; the bounded
 `get_community_level_share` resolver is intentionally public for Vercel.
@@ -108,10 +109,16 @@ supabase functions serve share-level --no-verify-jwt
 ## Deployment
 
 Apply migrations before deploying the functions. These commands do not run as
-part of local validation:
+part of local validation. Redeploy every browser-facing function after changing
+the shared CORS allowlist:
 
 ```sh
 supabase db push
+supabase functions deploy start-run --no-verify-jwt
+supabase functions deploy submit-score --no-verify-jwt
+supabase functions deploy daily-challenge --no-verify-jwt
+supabase functions deploy start-daily-run --no-verify-jwt
+supabase functions deploy submit-daily-score --no-verify-jwt
 supabase functions deploy submit-level --no-verify-jwt
 supabase functions deploy community-levels --no-verify-jwt
 supabase functions deploy share-level --no-verify-jwt

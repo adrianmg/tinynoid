@@ -249,6 +249,7 @@ func _finish_run(outcome: String) -> void:
 	if run_result.is_empty():
 		_present_terminal(outcome)
 		return
+	WavedashPlatform.submit_campaign_score(run_result)
 
 	if not PlayerProfile.has_player_name():
 		_record_run_score(run_result, "GUEST")

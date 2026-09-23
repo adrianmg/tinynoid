@@ -92,5 +92,45 @@ Supabase remains the leaderboard, community catalog, moderation, and dynamic
 level-preview backend. Friendly level slugs are resolved by a database RPC so
 published links remain stable as the catalog grows.
 
+### Wavedash
+
+The same Godot Web export can be published on [Wavedash](https://wavedash.com/).
+`godot/web_shell.html` reports load progress and calls `Wavedash.init()` only
+when Wavedash injects its SDK, so other hosts are unaffected. Keep
+`wavedash.toml` engine-less: a `[godot]` section makes Wavedash boot its
+default loader instead of this shell. On Wavedash, Stage 1 campaign scores are
+also posted to the portal leaderboard keyed `leaderboard` (higher is better);
+the in-game Top 100 still comes from Supabase.
+
+1. `wavedash.toml` targets the `adrianmg/tinynoid` game in the
+   [Developer Portal](https://wavedash.com/dev-portal/adrianmg/tinynoid). Don't
+   run `wavedash init` at the repository root, because it detects the legacy
+   Unity project.
+2. Export only the game to `godot/build/wavedash/`:
+
+   ```sh
+   GODOT_BIN=/path/to/godot .github/scripts/build-wavedash.sh
+   ```
+
+3. Test it in the sandbox, upload it, then publish the printed build ID:
+
+   ```sh
+   wavedash dev
+   wavedash build push -m "TINYNOID $(git rev-parse --short HEAD)"
+   wavedash publish <BUILD_ID>
+   ```
+
+Wavedash runs every player and build on its own `*.builds.wavedashcdn.com`
+origin. The Supabase game functions accept those origins once deployed; see
+[`supabase/README.md`](supabase/README.md#deployment). Browser storage is
+scoped to that origin, so the saved X handle and local score history start
+fresh with each new Wavedash build; global scores are unaffected.
+
+Store cover art and gameplay screenshots live in
+[`docs/wavedash/`](docs/wavedash/). The title-only covers are drawn by
+[`web/social/cover.html`](web/social/cover.html): serve `web/social/` and open
+`cover.html?format=wide` (1920×1080) or `?format=square` (1080×1080). The
+canvas is the final image.
+
 The legacy Unity project remains in the repository as migration history. The
 Godot game uses original layouts and generated presentation assets.

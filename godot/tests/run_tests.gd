@@ -58,6 +58,7 @@ func _run() -> void:
 	await _test_daily_challenge()
 	await _test_player_profile()
 	await _test_leaderboard_client()
+	await _test_wavedash_platform()
 	await _test_level_catalog()
 	await _test_capsule_drop_director()
 	await _test_dynamic_power_up_flow()
@@ -98,6 +99,53 @@ func _finish(suite_name: String) -> void:
 	MusicController.shutdown()
 	await get_tree().process_frame
 	get_tree().quit(_failures)
+
+
+func _test_wavedash_platform() -> void:
+	var campaign := {
+		"run_id": "wavedash-run",
+		"score": 1250,
+		"outcome": "game_over",
+		"completed_stage": 7,
+		"start_stage": 1,
+		"run_kind": "campaign",
+		"eligible": true,
+	}
+	_check(
+		WavedashPlatform.is_eligible_score(campaign),
+		"Stage 1 campaign scores qualify for the Wavedash leaderboard."
+	)
+	var later_start := campaign.duplicate()
+	later_start["start_stage"] = 5
+	later_start["eligible"] = false
+	_check(
+		not WavedashPlatform.is_eligible_score(later_start),
+		"Later-stage starts stay off the Wavedash leaderboard."
+	)
+	var daily := campaign.duplicate()
+	daily["run_kind"] = "daily"
+	_check(
+		not WavedashPlatform.is_eligible_score(daily),
+		"Daily Cartridge scores stay off the Wavedash leaderboard."
+	)
+	var empty := campaign.duplicate()
+	empty["score"] = 0
+	_check(
+		not WavedashPlatform.is_eligible_score(empty),
+		"Zero scores are not posted to Wavedash."
+	)
+	var upload_script := WavedashPlatform.score_upload_script(campaign)
+	_check(
+		upload_script.contains('getLeaderboard("leaderboard")')
+		and upload_script.contains(
+			"board.data.id, 1250, true, undefined, { stage: 7 }"
+		),
+		"Wavedash uploads keep each player's best portal leaderboard score."
+	)
+	_check(
+		not WavedashPlatform.submit_campaign_score(campaign),
+		"Wavedash score uploads are inert outside Wavedash web builds."
+	)
 
 
 func _test_generated_music() -> void:
@@ -406,12 +454,25 @@ func _test_main_menu() -> void:
 		"The desktop menu advertises keyboard controls."
 	)
 	_check(
+		MainMenu.instruction_lines_for(false, true) == [
+			"Arrow keys to move & select",
+			"Enter / Space to select",
+			"ESC to go back",
+		],
+		"The desktop web menu advertises Escape as back instead of quit."
+	)
+	_check(
 		MainMenu.instruction_lines_for(true) == [
 			"Tap and drag to move",
 			"Tap to select / launch / fire",
 			"Swipe lists to scroll",
 		],
 		"The mobile menu advertises touch controls."
+	)
+	_check(
+		MainMenu.instruction_lines_for(true, true)
+		== MainMenu.instruction_lines_for(true),
+		"The mobile web menu keeps its touch controls."
 	)
 	_check(
 		menu.call("_get_option_at", Vector2(40, 80)) == 0,
@@ -561,6 +622,13 @@ func _test_main_menu() -> void:
 	menu_cancel_event.pressed = true
 	menu._unhandled_input(menu_cancel_event)
 	_check(quit_requested[0], "Escape requests quit from the main menu.")
+	quit_requested[0] = false
+	menu._web_mode = true
+	menu._unhandled_input(menu_cancel_event)
+	_check(
+		not quit_requested[0],
+		"Escape does not halt a web export from the main menu."
+	)
 
 	menu.queue_free()
 	await get_tree().process_frame

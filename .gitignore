@@ -40,3 +40,4 @@ sysinfo.txt
 /.deploy-verify/
 **/node_modules/
 .DS_Store
+/supabase/.temp/
